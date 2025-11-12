@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Result Management System - Home{% endblock %}
+
+{% block content %}
+<div class="hero-section bg-primary text-white py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4 fw-bold">Student Result Management System</h1>
+                <p class="lead">A comprehensive platform for managing academic results across faculties, departments, and programs.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <!-- Student Login -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="display-5 text-primary mb-3">👨‍🎓</div>
+                    <h3 class="card-title">Student</h3>
+                    <p class="card-text">Login to view your academic results and download them in PDF format.</p>
+                    <a href="{% url 'student_login' %}" class="btn btn-primary">Student Login</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lecturer Section -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="display-5 text-success mb-3">👨‍🏫</div>
+                    <h3 class="card-title">Lecturer</h3>
+                    <p class="card-text">Register or login to upload and manage student results.</p>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'lecturer_login' %}" class="btn btn-success">Login</a>
+                        <a href="{% url 'lecturer_register' %}" class="btn btn-outline-success">Register</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="display-5 text-danger mb-3">⚙️</div>
+                    <h3 class="card-title">Admin</h3>
+                    <p class="card-text">Login to manage users, publish results, and send notifications.</p>
+                    <a href="{% url 'admin_login' %}" class="btn btn-danger">Admin Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center mb-5">Features</h2>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-primary">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Student Dashboard</h5>
+                        <p>View results from year 1 to current year and download in PDF format</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-success">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Lecturer Management</h5>
+                        <p>Upload exam records, tests, assignments, presentations, and attendance</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-info">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Admin Control</h5>
+                        <p>Manage faculties, departments, and publish results</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-warning">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Notifications & Reports</h5>
+                        <p>Send notifications and generate system reports</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

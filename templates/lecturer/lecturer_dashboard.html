@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Lecturer Dashboard{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Welcome</h5>
+                    <h3 class="text-success">{{ user.first_name }}</h3>
+                    <hr>
+                    <p class="mb-2"><strong>Lecturer ID:</strong> {{ lecturer.lecturer_id }}</p>
+                    <p class="mb-2"><strong>Email:</strong> {{ lecturer.email }}</p>
+                    <p class="mb-2"><strong>Faculty:</strong> {{ lecturer.faculty.name }}</p>
+                    <p class="mb-2"><strong>Department:</strong> {{ lecturer.department.name }}</p>
+                    {% if not lecturer.is_verified %}
+                        <div class="alert alert-warning mt-3">Pending admin verification</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="list-group">
+                <a href="{% url 'lecturer_dashboard' %}" class="list-group-item list-group-item-action active">
+                    Dashboard
+                </a>
+                <a href="{% url 'upload_results' %}" class="list-group-item list-group-item-action">
+                    Upload Results
+                </a>
+                <a href="{% url 'lecturer_logout' %}" class="list-group-item list-group-item-action text-danger">
+                    Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card text-white bg-info border-0">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Total Uploads</h5>
+                            <h2>{{ total_uploads }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-warning border-0">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Pending</h5>
+                            <h2>{{ pending_uploads }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-white bg-success border-0">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Published</h5>
+                            <h2>{{ published_uploads }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Recent Uploads</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_uploads %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Subject</th>
+                                        <th>Type</th>
+                                        <th>Score</th>
+                                        <th>Status</th>
+                                        <th>Uploaded</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for upload in recent_uploads %}
+                                        <tr>
+                                            <td>{{ upload.student.user.get_full_name }}</td>
+                                            <td>{{ upload.subject }}</td>
+                                            <td>{{ upload.get_result_type_display }}</td>
+                                            <td>{{ upload.score }}/{{ upload.total_score }}</td>
+                                            <td>
+                                                {% if upload.is_published %}
+                                                    <span class="badge bg-success">Published</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ upload.uploaded_date|date:"d M Y" }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">No uploads yet. <a href="{% url 'upload_results' %}">Upload results now</a></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

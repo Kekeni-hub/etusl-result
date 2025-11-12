@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Lecturer Home{% endblock %}
+
+{% block content %}
+<div class="hero-section bg-success text-white py-5">
+    <div class="container">
+        <h1 class="display-4">Lecturer Portal</h1>
+        <p class="lead">Manage and upload student results</p>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body text-center p-5">
+                    <h3 class="mb-4">Welcome Lecturer</h3>
+                    <p class="mb-4">Login to your account or create a new one</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'lecturer_login' %}" class="btn btn-success btn-lg">Login</a>
+                        <a href="{% url 'lecturer_register' %}" class="btn btn-outline-success btn-lg">Register</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

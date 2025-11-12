@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Results{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2>Manage Results</h2>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <select name="faculty" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Faculties</option>
+                                {% for fac in faculties %}
+                                    <option value="{{ fac.id }}" {% if request.GET.faculty|stringformat:"s" == fac.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ fac.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                                <option value="published" {% if status_filter == 'published' %}selected{% endif %}>Published</option>
+                                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Results</h5>
+        </div>
+        <div class="card-body">
+            {% if results %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Subject</th>
+                                <th>Type</th>
+                                <th>Score</th>
+                                <th>Grade</th>
+                                <th>Status</th>
+                                <th>Academic Year</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                                <tr>
+                                    <td>{{ result.student.user.get_full_name }}</td>
+                                    <td>{{ result.subject }}</td>
+                                    <td>{{ result.get_result_type_display }}</td>
+                                    <td>{{ result.score }}/{{ result.total_score }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if result.grade == 'A' %}bg-success
+                                            {% elif result.grade == 'B' %}bg-info
+                                            {% elif result.grade == 'C' %}bg-warning
+                                            {% elif result.grade == 'D' %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ result.grade }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if result.is_published %}
+                                            <span class="badge bg-success">Published</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ result.academic_year }}</td>
+                                    <td>
+                                        {% if not result.is_published %}
+                                            <form method="POST" style="display:inline;">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="publish">
+                                                <input type="hidden" name="result_id" value="{{ result.id }}">
+                                                <button type="submit" class="btn btn-sm btn-success">Publish</button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" style="display:inline;">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="unpublish">
+                                                <input type="hidden" name="result_id" value="{{ result.id }}">
+                                                <button type="submit" class="btn btn-sm btn-warning">Unpublish</button>
+                                            </form>
+                                        {% endif %}
+                                        <form method="POST" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="result_id" value="{{ result.id }}">
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page=1">First</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a></li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% else %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>
+                                <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">No results found.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

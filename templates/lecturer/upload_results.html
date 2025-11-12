@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Results{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Upload Student Results</h2>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Upload Results Form</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="uploadForm">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label class="form-label">Program</label>
+                            <select class="form-select" name="program" id="programSelect" required>
+                                <option value="">Select Program</option>
+                                {% for prog in programs %}
+                                    <option value="{{ prog.id }}">{{ prog.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Subject</label>
+                            <input type="text" class="form-control" name="subject" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Result Type</label>
+                                <select class="form-select" name="result_type" required>
+                                    <option value="">Select Type</option>
+                                    <option value="exam">Exam</option>
+                                    <option value="test">Test</option>
+                                    <option value="assignment">Assignment</option>
+                                    <option value="presentation">Presentation</option>
+                                    <option value="attendance">Attendance</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Total Score</label>
+                                <input type="number" class="form-control" name="total_score" value="100" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Academic Year</label>
+                                <input type="text" class="form-control" name="academic_year" placeholder="e.g., 2024/2025" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Semester</label>
+                                <select class="form-select" name="semester" required>
+                                    <option value="">Select Semester</option>
+                                    <option value="1">Semester 1</option>
+                                    <option value="2">Semester 2</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Students and Scores</label>
+                            <div id="studentsContainer">
+                                <div class="row mb-2">
+                                    <div class="col-md-8">
+                                        <input type="hidden" name="students[]" value="1" placeholder="Student ID">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addStudentRow()">Add More Students</button>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Upload Results</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function addStudentRow() {
+    const container = document.getElementById('studentsContainer');
+    const newRow = document.createElement('div');
+    newRow.className = 'row mb-2';
+    newRow.innerHTML = `
+        <div class="col-md-8">
+            <input type="hidden" name="students[]" value="1" placeholder="Student ID">
+        </div>
+        <div class="col-md-4">
+            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01">
+        </div>
+    `;
+    container.appendChild(newRow);
+}
+</script>
+{% endblock %}

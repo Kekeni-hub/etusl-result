@@ -1,0 +1,192 @@
+# 🌐 STUDENT RESULT MANAGEMENT SYSTEM - CORRECT URLs
+
+## 📍 ALL AVAILABLE ROUTES
+
+### 🏠 MAIN PAGE
+- **Home Page**: http://127.0.0.1:8000/
+- **Django Admin**: http://127.0.0.1:8000/admin/
+
+---
+
+## 👨‍🎓 STUDENT ROUTES
+**Base URL**: `/student/`
+
+| Page | URL | Purpose |
+|------|-----|---------|
+| Login | `/student/login/` | Student login |
+| Dashboard | `/student/dashboard/` | View results |
+| Download (from dashboard) | `/student/download-result/<result_id>/` | Download PDF |
+| Logout | `/student/logout/` | Logout |
+
+### Example URLs:
+```
+✅ http://127.0.0.1:8000/student/login/
+✅ http://127.0.0.1:8000/student/dashboard/
+✅ http://127.0.0.1:8000/student/download-result/1/ (example with result_id=1)
+✅ http://127.0.0.1:8000/student/logout/
+```
+
+---
+
+## 👨‍🏫 LECTURER ROUTES
+**Base URL**: `/lecturer/`
+
+| Page | URL | Purpose |
+|------|-----|---------|
+| Home | `/lecturer/` | Lecturer home |
+| Register | `/lecturer/register/` | Create account |
+| Login | `/lecturer/login/` | Lecturer login |
+| Dashboard | `/lecturer/dashboard/` | Lecturer dashboard |
+| Upload Results | `/lecturer/upload-results/` | Upload grades |
+| Logout | `/lecturer/logout/` | Logout |
+
+### Example URLs:
+```
+✅ http://127.0.0.1:8000/lecturer/
+✅ http://127.0.0.1:8000/lecturer/register/
+✅ http://127.0.0.1:8000/lecturer/login/
+✅ http://127.0.0.1:8000/lecturer/dashboard/
+✅ http://127.0.0.1:8000/lecturer/upload-results/
+✅ http://127.0.0.1:8000/lecturer/logout/
+```
+
+---
+
+## ⚙️ ADMIN / EXAM OFFICER ROUTES
+**Base URL**: `/officer/`
+
+| Page | URL | Purpose |
+|------|-----|---------|
+| Login | `/officer/login/` | Admin login |
+| Dashboard | `/officer/dashboard/` | Admin dashboard |
+| Manage Faculties | `/officer/faculties/` | Add/edit faculties |
+| Manage Departments | `/officer/departments/` | Add/edit departments |
+| Manage Results | `/officer/results/` | View/manage results |
+| Send Notifications | `/officer/notifications/` | Send messages |
+| View Reports | `/officer/reports/` | System reports |
+| Logout | `/officer/logout/` | Logout |
+
+### Example URLs:
+```
+✅ http://127.0.0.1:8000/officer/login/
+✅ http://127.0.0.1:8000/officer/dashboard/
+✅ http://127.0.0.1:8000/officer/faculties/
+✅ http://127.0.0.1:8000/officer/departments/
+✅ http://127.0.0.1:8000/officer/results/
+✅ http://127.0.0.1:8000/officer/notifications/
+✅ http://127.0.0.1:8000/officer/reports/
+✅ http://127.0.0.1:8000/officer/logout/
+```
+
+---
+
+## 🔐 TEST CREDENTIALS
+
+### Admin Account
+- **Username**: Kortu
+- **Password**: Mk1234
+- **Access URL**: http://127.0.0.1:8000/officer/login/
+
+---
+
+## ❌ INCORRECT URLs (404 Errors)
+
+These URLs will NOT work:
+```
+❌ /lecturer-home/        ← Use /lecturer/ instead
+❌ /admin-login/          ← Use /officer/login/ instead
+❌ /student-login/        ← Use /student/login/ instead
+❌ /admin/faculties/      ← Use /officer/faculties/ instead
+```
+
+---
+
+## 🎯 QUICK START
+
+### Option 1: From Home Page (Recommended)
+1. Go to: http://127.0.0.1:8000/
+2. Click the appropriate login button (Student, Lecturer, or Admin)
+3. All links are auto-generated with correct URLs ✅
+
+### Option 2: Direct URLs
+- **Student Login**: http://127.0.0.1:8000/student/login/
+- **Lecturer Login**: http://127.0.0.1:8000/lecturer/login/
+- **Admin Login**: http://127.0.0.1:8000/officer/login/
+
+---
+
+## 📊 URL STRUCTURE SUMMARY
+
+```
+Main Domain: http://127.0.0.1:8000
+
+Apps & Their Base Paths:
+├── /                    ← Home (student app)
+├── /admin/              ← Django Admin
+├── /student/            ← Student app
+│   ├── login/
+│   ├── dashboard/
+│   ├── download-result/<id>/
+│   └── logout/
+├── /lecturer/           ← Lecturer app
+│   ├── (home)
+│   ├── register/
+│   ├── login/
+│   ├── dashboard/
+│   ├── upload-results/
+│   └── logout/
+└── /officer/            ← Exam Officer app
+    ├── login/
+    ├── dashboard/
+    ├── faculties/
+    ├── departments/
+    ├── results/
+    ├── notifications/
+    ├── reports/
+    └── logout/
+```
+
+---
+
+## ✅ WHAT YOU SHOULD DO
+
+1. **Access Home Page First**:
+   ```
+   http://127.0.0.1:8000/
+   ```
+   This page has all the correct links built-in!
+
+2. **Use the Login Buttons on Home Page**:
+   - Click "Student Login"
+   - Click "Lecturer Login" or "Register"
+   - Click "Admin Login"
+
+3. **Avoid Manual URL Typing**:
+   - Use the buttons on pages instead
+   - They automatically use correct URLs
+
+---
+
+## 🔍 URL GENERATION METHOD
+
+All URLs in the system use Django's `{% url %}` template tag, which:
+- ✅ Automatically generates correct URLs
+- ✅ Prevents broken links
+- ✅ Adapts if URLs change in urls.py
+
+Example in templates:
+```html
+<a href="{% url 'student_login' %}">Login</a>  → /student/login/
+<a href="{% url 'lecturer_login' %}">Login</a> → /lecturer/login/
+<a href="{% url 'admin_login' %}">Login</a>    → /officer/login/
+```
+
+---
+
+## 📝 REMEMBER
+
+✅ **Correct**: http://127.0.0.1:8000/lecturer/
+❌ **Incorrect**: http://127.0.0.1:8000/lecturer-home/
+
+The home page buttons use the correct URLs automatically!
+

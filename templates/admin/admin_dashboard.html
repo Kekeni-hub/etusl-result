@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2 class="text-danger">Admin Dashboard</h2>
+            <p>Welcome, {{ user.first_name }}!</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary border-0">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Students</h5>
+                    <h2>{{ total_students }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-success border-0">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Lecturers</h5>
+                    <h2>{{ total_lecturers }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-warning border-0">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Pending Verification</h5>
+                    <h2>{{ pending_verification }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white bg-info border-0">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Published Results</h5>
+                    <h2>{{ published_results }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group">
+                <h5 class="p-3 border-bottom">Admin Menu</h5>
+                <a href="{% url 'manage_faculties' %}" class="list-group-item list-group-item-action">
+                    📚 Manage Faculties
+                </a>
+                <a href="{% url 'manage_departments' %}" class="list-group-item list-group-item-action">
+                    🏢 Manage Departments
+                </a>
+                <a href="{% url 'manage_results' %}" class="list-group-item list-group-item-action">
+                    📊 Manage Results
+                </a>
+                <a href="{% url 'send_notification' %}" class="list-group-item list-group-item-action">
+                    🔔 Send Notifications
+                </a>
+                <a href="{% url 'view_reports' %}" class="list-group-item list-group-item-action">
+                    📄 View Reports
+                </a>
+                <a href="{% url 'admin_logout' %}" class="list-group-item list-group-item-action text-danger">
+                    🚪 Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">System Overview</h5>
+                </div>
+                <div class="card-body">
+                    <p>Welcome to the Admin Dashboard. Use the menu on the left to manage:</p>
+                    <ul>
+                        <li><strong>Faculties</strong> - Create, edit, and manage faculties</li>
+                        <li><strong>Departments</strong> - Create, edit, and manage departments within faculties</li>
+                        <li><strong>Results</strong> - Review and publish student results</li>
+                        <li><strong>Notifications</strong> - Send messages to students and lecturers</li>
+                        <li><strong>Reports</strong> - Generate and view system reports</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

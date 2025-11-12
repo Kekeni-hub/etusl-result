@@ -1,0 +1,118 @@
+# 🔧 FIX FOR 404 ERRORS - URL FORMAT ISSUE
+
+## ❌ WHAT YOU DID (Wrong)
+```
+Typed in browser: http://127.0.0.1:8000/student-login/
+Result: 404 Page not found
+```
+
+## ✅ WHAT YOU SHOULD DO (Correct)
+```
+Correct URL: http://127.0.0.1:8000/student/login/
+Result: Works perfectly ✅
+```
+
+---
+
+## 🎯 THE PROBLEM
+
+You typed `/student-login/` (with a dash between student and login)
+
+**But the correct URL is `/student/login/` (with a slash between student and login)**
+
+---
+
+## 🔍 WHY THIS HAPPENS
+
+Your Django URL structure is:
+
+```python
+path('student/', include('student.urls')),
+```
+
+Then inside `student/urls.py`:
+```python
+path('login/', views.student_login, name='student_login'),
+```
+
+So Django combines them:
+- `/student/` + `login/` = `/student/login/` ✅ (CORRECT)
+- NOT `/student-login/` ❌ (WRONG)
+
+---
+
+## ✅ ALL CORRECT FORMATS
+
+### Student Routes (NO DASHES)
+```
+✅ /student/login/
+✅ /student/dashboard/
+✅ /student/logout/
+```
+
+### Lecturer Routes (NO DASHES)
+```
+✅ /lecturer/
+✅ /lecturer/login/
+✅ /lecturer/register/
+✅ /lecturer/dashboard/
+✅ /lecturer/upload-results/
+✅ /lecturer/logout/
+```
+
+### Admin Routes (NO DASHES)
+```
+✅ /officer/login/
+✅ /officer/dashboard/
+✅ /officer/faculties/
+✅ /officer/departments/
+✅ /officer/results/
+✅ /officer/notifications/
+✅ /officer/reports/
+✅ /officer/logout/
+```
+
+---
+
+## ❌ INCORRECT FORMATS (All Will Give 404)
+
+These will NOT work:
+```
+❌ /student-login/        ← Should be /student/login/
+❌ /lecturer-home/        ← Should be /lecturer/
+❌ /lecturer-login/       ← Should be /lecturer/login/
+❌ /admin-login/          ← Should be /officer/login/
+❌ /admin-dashboard/      ← Should be /officer/dashboard/
+```
+
+---
+
+## 🎯 BEST PRACTICE
+
+**Don't type URLs manually!** Instead:
+
+1. Go to home page: http://127.0.0.1:8000/
+2. Click the appropriate button (Student, Lecturer, or Admin)
+3. The correct URL will be used automatically ✅
+
+---
+
+## 📝 SUMMARY
+
+| Aspect | Details |
+|--------|---------|
+| **Wrong Format** | `/app-action/` or `/app-action-subaction/` |
+| **Right Format** | `/app/action/` or `/app/action/subaction/` |
+| **Separator** | Forward slash `/`, NOT dash `-` |
+| **Best Practice** | Click links on pages, don't type URLs |
+
+---
+
+## ✨ REMEMBER
+
+- Use **forward slashes** (`/`) not **dashes** (`-`)
+- Structure: `/appname/endpoint/`
+- Always click links from the home page
+
+**Now try accessing the correct URL and it will work!** ✅
+
