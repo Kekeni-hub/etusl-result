@@ -28,29 +28,14 @@
             </div>
         </div>
 
-        <!-- Lecturer Section -->
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="display-5 text-success mb-3">👨‍🏫</div>
-                    <h3 class="card-title">Lecturer</h3>
-                    <p class="card-text">Register or login to upload and manage student results.</p>
-                    <div class="btn-group" role="group">
-                        <a href="{% url 'lecturer_login' %}" class="btn btn-success">Login</a>
-                        <a href="{% url 'lecturer_register' %}" class="btn btn-outline-success">Register</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Admin Section -->
+        <!-- Admin: single entry (covers Lecturer, HOD, DEAN, Exam Officer) -->
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body text-center">
                     <div class="display-5 text-danger mb-3">⚙️</div>
                     <h3 class="card-title">Admin</h3>
-                    <p class="card-text">Login to manage users, publish results, and send notifications.</p>
-                    <a href="{% url 'admin_login' %}" class="btn btn-danger">Admin Login</a>
+                    <p class="card-text">Administrative access (Lecturer, HOD, DEAN, Exam Officer).</p>
+                    <a href="{% url 'admin_portal' %}" class="btn btn-danger">Admin Login</a>
                 </div>
             </div>
         </div>
@@ -88,11 +73,11 @@
             <div class="col-md-6 mb-3">
                 <div class="d-flex">
                     <div class="flex-shrink-0">
-                        <div class="display-6 text-info">✓</div>
+                        <div class="display-6 text-warning">✓</div>
                     </div>
                     <div class="flex-grow-1 ms-3">
-                        <h5>Admin Control</h5>
-                        <p>Manage faculties, departments, and publish results</p>
+                        <h5>HOD Review & Approval</h5>
+                        <p>Department heads review and approve results from lecturers</p>
                     </div>
                 </div>
             </div>
@@ -100,7 +85,31 @@
             <div class="col-md-6 mb-3">
                 <div class="d-flex">
                     <div class="flex-shrink-0">
-                        <div class="display-6 text-warning">✓</div>
+                        <div class="display-6 text-info">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>DEAN Review & Finalization</h5>
+                        <p>Faculty deans review and finalize results for publication</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-danger">✓</div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Admin Control</h5>
+                        <p>Publish results and manage faculties, departments, and users</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="display-6 text-secondary">✓</div>
                     </div>
                     <div class="flex-grow-1 ms-3">
                         <h5>Notifications & Reports</h5>

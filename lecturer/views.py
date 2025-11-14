@@ -1,14 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from Etu_student_result.decorators import require_profile
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
+from django.core import serializers
+from django.http import JsonResponse
 from datetime import datetime
+import json
 
 from .models import Lecturer
 from student.models import Student, Result, Faculty, Department, Program
+from django.db.models import Q
+from admin_hierarchy.models import ResultApprovalWorkflow, HeadOfDepartment
 
 
 def lecturer_home(request):
@@ -102,34 +108,41 @@ def lecturer_login(request):
             return redirect('lecturer_dashboard')
     
     if request.method == 'POST':
-        email = request.POST.get('email')
+        # Accept username or email
+        identifier = request.POST.get('identifier') or request.POST.get('email')
         password = request.POST.get('password')
-        
-        try:
-            user = User.objects.get(email=email)
+
+        user = None
+        if identifier:
+            if '@' in identifier:
+                user = User.objects.filter(email__iexact=identifier).first()
+            else:
+                user = User.objects.filter(username__iexact=identifier).first()
+
+        if user:
             user = authenticate(request, username=user.username, password=password)
-            
             if user is not None:
-                lecturer = Lecturer.objects.get(user=user)
-                
-                if not lecturer.is_active:
-                    messages.error(request, 'Your account has been deactivated.')
+                try:
+                    lecturer = Lecturer.objects.get(user=user)
+                    if not lecturer.is_active:
+                        messages.error(request, 'Your account has been deactivated.')
+                        return redirect('lecturer_login')
+                except Lecturer.DoesNotExist:
+                    messages.error(request, 'Lecturer profile not found.')
                     return redirect('lecturer_login')
-                
+
                 login(request, user, backend='django.contrib.auth.backends.ModelBackend')
                 messages.success(request, f'Welcome, {user.first_name}!')
                 return redirect('lecturer_dashboard')
             else:
-                messages.error(request, 'Invalid email or password.')
-        except User.DoesNotExist:
-            messages.error(request, 'Invalid email or password.')
-        except Lecturer.DoesNotExist:
-            messages.error(request, 'Lecturer profile not found.')
+                messages.error(request, 'Invalid username/email or password.')
+        else:
+            messages.error(request, 'Invalid username/email or password.')
     
     return render(request, 'lecturer/lecturer_login.html')
 
 
-@login_required(login_url='lecturer_login')
+@require_profile('lecturer_profile', login_url='lecturer_login')
 def lecturer_dashboard(request):
     """Lecturer dashboard"""
     try:
@@ -194,7 +207,7 @@ def upload_results(request):
                 else:
                     grade = 'F'
                 
-                Result.objects.update_or_create(
+                result, created = Result.objects.update_or_create(
                     student=student,
                     subject=subject,
                     result_type=result_type,
@@ -210,8 +223,24 @@ def upload_results(request):
                         'uploaded_by': lecturer,
                     }
                 )
+                
+                # Create or update ResultApprovalWorkflow for this result
+                # Find the HOD for this student's department
+                hod = HeadOfDepartment.objects.filter(
+                    department=student.department,
+                    is_active=True
+                ).first()
+                
+                if hod:
+                    workflow, _ = ResultApprovalWorkflow.objects.update_or_create(
+                        result=result,
+                        defaults={
+                            'status': 'lecturer_submitted',
+                            'current_hod': hod,
+                        }
+                    )
             
-            messages.success(request, f'Successfully uploaded results for {len(students)} students.')
+            messages.success(request, f'Successfully uploaded results for {len(students)} students. Waiting for HOD approval.')
             return redirect('lecturer_dashboard')
         except Exception as e:
             messages.error(request, f'Upload failed: {str(e)}')
@@ -221,11 +250,35 @@ def upload_results(request):
         department__faculty=lecturer.faculty
     ) if lecturer.faculty else Program.objects.none()
     
+    # Build students queryset: include active students belonging to the lecturer's faculty,
+    # department, or programs available to the lecturer. This ensures students created
+    # by Admin/DEAN are visible to lecturers in the same faculty/department/program.
+    if lecturer.faculty:
+        # programs is already filtered to lecturer.faculty
+        students_qs = Student.objects.filter(is_active=True).filter(
+            Q(faculty=lecturer.faculty) |
+            Q(department=lecturer.department) |
+            Q(program__in=programs)
+        ).select_related('user', 'faculty', 'department', 'program')
+    else:
+        students_qs = Student.objects.none()
+
+    # Convert students to JSON for JavaScript
+    students_list = []
+    for s in students_qs:
+        students_list.append({
+            'id': s.id,
+            'label': f"{s.student_id} — {s.user.get_full_name()}"
+        })
+    students_json = json.dumps(students_list)
+
     context = {
         'programs': programs,
-        'result_types': [('exam', 'Exam'), ('test', 'Test'), ('assignment', 'Assignment'), 
+        'result_types': [('exam', 'Exam'), ('test', 'Test'), ('assignment', 'Assignment'),
                          ('presentation', 'Presentation'), ('attendance', 'Attendance')],
         'current_year': datetime.now().year,
+        'students': students_qs,
+        'students_json': students_json,
     }
     
     return render(request, 'lecturer/upload_results.html', context)

@@ -24,14 +24,21 @@ class ProgramAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('get_full_name', 'student_id', 'email', 'faculty', 'department', 'current_year', 'is_active')
+    def photo_tag(self, obj):
+        from django.utils.html import format_html
+        if obj.photo:
+            return format_html('<img src="{}" style="height:40px;border-radius:50%;"/>', obj.photo.url)
+        return ''
+    photo_tag.short_description = 'Photo'
+
+    list_display = ('photo_tag', 'get_full_name', 'student_id', 'email', 'faculty', 'department', 'current_year', 'is_active')
     list_filter = ('faculty', 'department', 'current_year', 'is_active', 'registration_date')
     search_fields = ('user__first_name', 'user__last_name', 'student_id', 'email')
     readonly_fields = ('registration_date', 'updated_at')
     
     fieldsets = (
         ('User', {'fields': ('user',)}),
-        ('Personal Information', {'fields': ('student_id', 'email', 'phone', 'date_of_birth', 'address')}),
+        ('Personal Information', {'fields': ('student_id', 'email', 'phone', 'date_of_birth', 'address', 'photo')}),
         ('Academic Information', {'fields': ('faculty', 'department', 'program', 'current_year')}),
         ('Status', {'fields': ('is_active',)}),
         ('Dates', {'fields': ('registration_date', 'updated_at')}),

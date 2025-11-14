@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from Etu_student_result.decorators import require_profile
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import HttpResponse
@@ -47,7 +48,7 @@ def student_login(request):
     return render(request, 'student/student_login.html')
 
 
-@login_required(login_url='student_login')
+@require_profile('student_profile', login_url='student_login')
 def student_dashboard(request):
     """Student dashboard"""
     try:

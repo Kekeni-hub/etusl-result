@@ -26,8 +26,15 @@
                                 <option value="">Select Program</option>
                                 {% for prog in programs %}
                                     <option value="{{ prog.id }}">{{ prog.name }}</option>
+                                {% empty %}
+                                    <option value="" disabled>No programs available</option>
                                 {% endfor %}
                             </select>
+                            {% if not programs %}
+                                <small class="text-danger d-block mt-2">
+                                    No programs available. Please contact administration.
+                                </small>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
@@ -72,17 +79,29 @@
 
                         <div class="mb-3">
                             <label class="form-label">Students and Scores</label>
-                            <div id="studentsContainer">
-                                <div class="row mb-2">
-                                    <div class="col-md-8">
-                                        <input type="hidden" name="students[]" value="1" placeholder="Student ID">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01">
+                            {% if students %}
+                                <div id="studentsContainer">
+                                    <div class="row mb-2 student-row">
+                                        <div class="col-md-8">
+                                            <select name="students[]" class="form-select student-select" required>
+                                                <option value="">Select student</option>
+                                                {% for s in students %}
+                                                    <option value="{{ s.id }}">{{ s.student_id }} — {{ s.user.get_full_name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01" required>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addStudentRow()">Add More Students</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addStudentRow()">Add More Students</button>
+                            {% else %}
+                                <div class="alert alert-warning" role="alert">
+                                    <strong>No students available.</strong> There are currently no students in your faculty/department/program.
+                                    Please contact administration to add students.
+                                </div>
+                            {% endif %}
                         </div>
 
                         <button type="submit" class="btn btn-success w-100">Upload Results</button>
@@ -94,16 +113,37 @@
 </div>
 
 <script>
+// Initialize students data from Django template context
+// {% verbatim %}
+const studentsData = JSON.parse('{{ students_json|escapejs }}');
+// {% endverbatim %}
+
 function addStudentRow() {
     const container = document.getElementById('studentsContainer');
+    if (!container) {
+        alert('No students available. Cannot add more rows.');
+        return;
+    }
+    
+    if (studentsData.length === 0) {
+        alert('No students available to add.');
+        return;
+    }
+    
     const newRow = document.createElement('div');
-    newRow.className = 'row mb-2';
+    newRow.className = 'row mb-2 student-row';
+    let options = '<option value="">Select student</option>';
+    
+    studentsData.forEach(s => { 
+        options += `<option value="${s.id}">${s.label}</option>`; 
+    });
+    
     newRow.innerHTML = `
         <div class="col-md-8">
-            <input type="hidden" name="students[]" value="1" placeholder="Student ID">
+            <select name="students[]" class="form-select student-select" required>${options}</select>
         </div>
         <div class="col-md-4">
-            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01">
+            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01" required>
         </div>
     `;
     container.appendChild(newRow);

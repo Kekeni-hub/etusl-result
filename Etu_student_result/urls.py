@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from student.views import home
+from admin_hierarchy.views import hod_index, dean_index
 
 urlpatterns = [
     path('', home, name='home'),
@@ -27,6 +28,10 @@ urlpatterns = [
     path('student/', include('student.urls')),
     path('lecturer/', include('lecturer.urls')),
     path('officer/', include('exam_officer.urls')),
+    path('admin-hierarchy/', include('admin_hierarchy.urls')),
+    # Direct shortcuts for HOD and DEAN
+    path('hod/', hod_index, name='hod_redirect'),
+    path('dean/', dean_index, name='dean_redirect'),
 ]
 
 if settings.DEBUG:

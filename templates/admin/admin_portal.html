@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Portal - Select Role{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body p-4 text-center">
+                    <h2 class="mb-3">Admin Portal</h2>
+                    <p class="lead mb-4">Choose your role to proceed to the appropriate login page.</p>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-center">
+                        <a href="{% url 'lecturer_login' %}" class="btn btn-success btn-lg">Lecturer</a>
+                        <a href="{% url 'hod_login' %}" class="btn btn-warning btn-lg">HOD</a>
+                        <a href="{% url 'dean_login' %}" class="btn btn-info btn-lg">DEAN</a>
+                        <a href="{% url 'admin_login' %}" class="btn btn-danger btn-lg">Exam Officer</a>
+                    </div>
+
+                    <hr class="my-4">
+                    <a href="{% url 'home' %}" class="btn btn-link">Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

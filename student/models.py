@@ -64,6 +64,7 @@ class Student(models.Model):
     current_year = models.IntegerField(choices=YEAR_CHOICES, default=1)
     date_of_birth = models.DateField(blank=True, null=True)
     address = models.TextField(blank=True, null=True)
+    photo = models.ImageField(upload_to='students/photos/', blank=True, null=True)
     registration_date = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
