@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Student Result Management System
 
 A comprehensive Django-based web application for managing student academic results. This system allows lecturers to upload results, admin to manage and publish them, and students to view their academic performance.
@@ -281,3 +282,6 @@ This project is provided as-is for educational purposes.
 
 **Last Updated**: November 2025
 **Version**: 1.0.0
+=======
+# etusl-result
+>>>>>>> 5339f8550db348e82950e2910e4479ffa37303bb
