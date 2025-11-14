@@ -109,10 +109,10 @@
                 <a href="{% url 'hod_dashboard' %}" class="nav-link active">
                     <i class="fas fa-home"></i> Dashboard
                 </a>
-                <a href="#pending" class="nav-link">
+                <a href="{% url 'hod_pending_list' %}" class="nav-link">
                     <i class="fas fa-clock"></i> Pending Reviews
                 </a>
-                <a href="#approved" class="nav-link">
+                <a href="{% url 'hod_approved_list' %}" class="nav-link">
                     <i class="fas fa-check-circle"></i> Approved
                 </a>
             </nav>

@@ -110,7 +110,7 @@
                 <a href="{% url 'dean_dashboard' %}" class="nav-link active">
                     <i class="fas fa-home"></i> Dashboard
                 </a>
-                <a href="#pending" class="nav-link">
+                <a href="{% url 'dean_pending_list' %}" class="nav-link">
                     <i class="fas fa-clock"></i> Pending Reviews
                 </a>
                 <a href="{% url 'dean_add_student' %}" class="nav-link">
@@ -119,7 +119,7 @@
                 <a href="{% url 'dean_add_program' %}" class="nav-link">
                     <i class="fas fa-book-medical"></i> Add Program
                 </a>
-                <a href="#finalized" class="nav-link">
+                <a href="{% url 'dean_finalized_list' %}" class="nav-link">
                     <i class="fas fa-check-double"></i> Finalized
                 </a>
             </nav>

@@ -61,6 +61,7 @@ class ResultApprovalWorkflow(models.Model):
     # Tracking which admin is currently responsible
     current_hod = models.ForeignKey(HeadOfDepartment, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_hod_approvals')
     current_dean = models.ForeignKey(DeanOfFaculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_dean_approvals')
+    current_exam_officer = models.ForeignKey('exam_officer.ExamOfficer', on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_exam_approvals')
     
     # Approval/rejection notes
     hod_notes = models.TextField(blank=True, null=True)

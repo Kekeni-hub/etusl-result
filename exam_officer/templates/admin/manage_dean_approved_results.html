@@ -110,51 +110,38 @@
             {% endfor %}
         {% endif %}
 
+        <!-- Search and Filter Section -->
+        <div class="filter-section">
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <label for="q" class="form-label">Search by Student ID or Subject:</label>
+                    <input type="text" name="q" id="q" class="form-control" 
+                           placeholder="Enter student ID or subject name..." 
+                           value="{{ q }}">
+                </div>
+                <div class="col-md-6 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <a href="{% url 'manage_dean_approved_results' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+
         <!-- Statistics -->
         <div class="stats-row">
             <div class="stat-card">
-                <div class="stat-number">{{ workflows|length }}</div>
+                <div class="stat-number">{{ pending_count }}</div>
                 <div class="stat-label">Awaiting Publication</div>
             </div>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <form method="GET" class="row g-3">
-                <div class="col-md-4">
-                    <label for="faculty" class="form-label">Filter by Faculty:</label>
-                    <select name="faculty" id="faculty" class="form-select">
-                        <option value="">All Faculties</option>
-                        {% for faculty in faculties %}
-                            <option value="{{ faculty.id }}" {% if request.GET.faculty == faculty.id|stringformat:"s" %}selected{% endif %}>
-                                {{ faculty.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label for="department" class="form-label">Filter by Department:</label>
-                    <select name="department" id="department" class="form-select">
-                        <option value="">All Departments</option>
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"s" %}selected{% endif %}>
-                                {{ dept.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter"></i> Apply Filters
-                    </button>
-                </div>
-            </form>
         </div>
 
         <!-- Results Table -->
         <div class="table-container">
             <div class="table-header">
-                <h5><i class="fas fa-list"></i> Results Ready for Publication</h5>
+                <h5><i class="fas fa-list"></i> Results Ready for Publication (Dean Approved)</h5>
             </div>
             
             {% if workflows %}
@@ -162,33 +149,28 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th></th>
                                 <th>Student ID</th>
+                                <th>Student Name</th>
                                 <th>Subject</th>
                                 <th>Score</th>
                                 <th>Grade</th>
                                 <th>Department</th>
-                                <th>DEAN Approved Date</th>
+                                <th>Submitted By</th>
+                                <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for workflow in workflows %}
                                 <tr>
-                                    <td style="width:60px;">
-                                        {% load static %}
-                                        {% if workflow.result.student.photo %}
-                                            <img src="{{ workflow.result.student.photo.url }}" alt="{{ workflow.result.student.user.get_full_name }}" style="height:40px;border-radius:50%;" />
-                                        {% else %}
-                                            <img src="{% static 'img/avatar-placeholder.svg' %}" alt="No photo" style="height:40px;border-radius:50%;" />
-                                        {% endif %}
-                                    </td>
                                     <td><strong>{{ workflow.result.student.student_id }}</strong></td>
+                                    <td>{{ workflow.result.student.user.get_full_name }}</td>
                                     <td>{{ workflow.result.subject }}</td>
                                     <td>{{ workflow.result.score }}/{{ workflow.result.total_score }}</td>
                                     <td><span class="badge bg-info">{{ workflow.result.grade }}</span></td>
                                     <td>{{ workflow.result.department.name }}</td>
-                                    <td>{{ workflow.dean_approved_date|date:"M d, Y H:i" }}</td>
+                                    <td>{{ workflow.current_hod.user.get_full_name|default:"N/A" }}</td>
+                                    <td><span class="badge badge-approved">{{ workflow.get_status_display }}</span></td>
                                     <td>
                                         <a href="{% url 'publish_result' workflow.id %}" class="btn-publish">
                                             <i class="fas fa-check"></i> Review & Publish
@@ -206,10 +188,10 @@
                         <ul class="pagination justify-content-center">
                             {% if page_obj.has_previous %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=1">First</a>
+                                    <a class="page-link" href="?page=1{% if q %}&q={{ q }}{% endif %}">First</a>
                                 </li>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Previous</a>
                                 </li>
                             {% endif %}
 
@@ -217,16 +199,16 @@
                                 {% if page_obj.number == num %}
                                     <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                                 {% else %}
-                                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if q %}&q={{ q }}{% endif %}">{{ num }}</a></li>
                                 {% endif %}
                             {% endfor %}
 
                             {% if page_obj.has_next %}
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Next</a>
                                 </li>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if q %}&q={{ q }}{% endif %}">Last</a>
                                 </li>
                             {% endif %}
                         </ul>

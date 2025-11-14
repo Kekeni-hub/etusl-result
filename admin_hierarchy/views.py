@@ -11,6 +11,7 @@ from django.db.models import Q
 
 from .models import HeadOfDepartment, DeanOfFaculty, ResultApprovalWorkflow, ApprovalHistory
 from student.models import Student, Result, Department, Faculty, Program
+from exam_officer.models import ExamOfficer
 from .forms import DeanStudentForm
 from .forms import DeanProgramForm
 
@@ -107,6 +108,71 @@ def hod_dashboard(request):
     }
     
     return render(request, 'admin_hierarchy/hod_dashboard.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_pending_list(request):
+    """Dedicated page showing all pending submissions for the HOD's department"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+
+    q = request.GET.get('q', '').strip()
+    pending_qs = ResultApprovalWorkflow.objects.filter(
+        current_hod=hod,
+        status='lecturer_submitted'
+    ).select_related('result__student')
+
+    if q:
+        pending_qs = pending_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+
+    paginator = Paginator(pending_qs, 20)
+    page_number = request.GET.get('page', 1)
+    page = paginator.get_page(page_number)
+
+    context = {
+        'hod': hod,
+        'pending_page': page,
+        'q': q,
+    }
+    return render(request, 'admin_hierarchy/hod_pending.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_approved_list(request):
+    """Dedicated page showing all HOD-approved submissions for the HOD's department"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+
+    q = request.GET.get('q', '').strip()
+    approved_qs = ResultApprovalWorkflow.objects.filter(
+        current_hod=hod,
+        status='hod_approved'
+    ).select_related('result__student')
+
+    if q:
+        approved_qs = approved_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+
+    paginator = Paginator(approved_qs, 20)
+    page_number = request.GET.get('page', 1)
+    page = paginator.get_page(page_number)
+
+    context = {
+        'hod': hod,
+        'approved_page': page,
+        'q': q,
+    }
+    return render(request, 'admin_hierarchy/hod_approved.html', context)
+
 
 
 @login_required(login_url='hod_login')
@@ -277,6 +343,70 @@ def dean_dashboard(request):
     return render(request, 'admin_hierarchy/dean_dashboard.html', context)
 
 
+@require_profile('dean_profile', login_url='dean_login')
+def dean_pending_list(request):
+    """Dedicated page showing all pending workflows for the DEAN's faculty"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+
+    q = request.GET.get('q', '').strip()
+    pending_qs = ResultApprovalWorkflow.objects.filter(
+        current_dean=dean,
+        status='hod_approved'
+    ).select_related('result__student', 'current_hod')
+
+    if q:
+        pending_qs = pending_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+
+    paginator = Paginator(pending_qs, 20)
+    page_number = request.GET.get('page', 1)
+    page = paginator.get_page(page_number)
+
+    context = {
+        'dean': dean,
+        'pending_page': page,
+        'q': q,
+    }
+    return render(request, 'admin_hierarchy/dean_pending.html', context)
+
+
+@require_profile('dean_profile', login_url='dean_login')
+def dean_finalized_list(request):
+    """Dedicated page showing all finalized/DEAN-approved workflows for the DEAN's faculty"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+
+    q = request.GET.get('q', '').strip()
+    approved_qs = ResultApprovalWorkflow.objects.filter(
+        current_dean=dean,
+        status='dean_approved'
+    ).select_related('result__student', 'current_hod')
+
+    if q:
+        approved_qs = approved_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+
+    paginator = Paginator(approved_qs, 20)
+    page_number = request.GET.get('page', 1)
+    page = paginator.get_page(page_number)
+
+    context = {
+        'dean': dean,
+        'approved_page': page,
+        'q': q,
+    }
+    return render(request, 'admin_hierarchy/dean_finalized.html', context)
+
+
 @login_required(login_url='dean_login')
 def dean_add_student(request):
     """Allow DEAN to add a student to their faculty; departments/programs limited to dean's faculty."""
@@ -371,7 +501,12 @@ def dean_review_result(request, workflow_id):
             workflow.status = 'dean_approved'
             workflow.dean_notes = notes
             workflow.dean_reviewed_at = timezone.now()
-            # Ready for EXAM to publish
+            
+            # Assign to an active EXAM Officer
+            exam_officer = ExamOfficer.objects.filter(is_active=True).first()
+            if exam_officer:
+                workflow.current_exam_officer = exam_officer
+            
             workflow.save()
             
             ApprovalHistory.objects.create(
@@ -381,7 +516,7 @@ def dean_review_result(request, workflow_id):
                 notes=notes
             )
             
-            messages.success(request, 'Result approved by DEAN. Ready for EXAM officer to publish.')
+            messages.success(request, 'Result approved by DEAN. Forwarded to EXAM officer for publication.')
         
         elif action == 'reject':
             workflow.status = 'dean_rejected'

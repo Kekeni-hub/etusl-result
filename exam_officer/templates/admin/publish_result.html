@@ -266,23 +266,23 @@
                     <div class="timeline-icon"><i class="fas fa-check"></i></div>
                     <div class="timeline-content">
                         <div class="timeline-label">Lecturer Submitted</div>
-                        <div class="timeline-date">{{ workflow.created_at|date:"M d, Y H:i" }}</div>
+                        <div class="timeline-date">{{ workflow.lecturer_submitted_at|date:"M d, Y H:i" }}</div>
                     </div>
                 </div>
 
                 <div class="timeline-item">
                     <div class="timeline-icon"><i class="fas fa-check"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-label">HOD Approved</div>
-                        <div class="timeline-date">{{ workflow.hod_approved_date|date:"M d, Y H:i" }}</div>
+                        <div class="timeline-label">HOD Approved ({{ workflow.current_hod.user.get_full_name }})</div>
+                        <div class="timeline-date">{% if workflow.hod_reviewed_at %}{{ workflow.hod_reviewed_at|date:"M d, Y H:i" }}{% else %}Pending...{% endif %}</div>
                     </div>
                 </div>
 
                 <div class="timeline-item">
                     <div class="timeline-icon"><i class="fas fa-check"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-label">DEAN Approved</div>
-                        <div class="timeline-date">{{ workflow.dean_approved_date|date:"M d, Y H:i" }}</div>
+                        <div class="timeline-label">DEAN Approved ({{ workflow.current_dean.user.get_full_name }})</div>
+                        <div class="timeline-date">{% if workflow.dean_reviewed_at %}{{ workflow.dean_reviewed_at|date:"M d, Y H:i" }}{% else %}Pending...{% endif %}</div>
                     </div>
                 </div>
 

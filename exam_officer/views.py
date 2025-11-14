@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.db.models import Q
 
 from .models import ExamOfficer, Notification, SystemReport
 from student.models import Student, Faculty, Department, Result, Program
@@ -85,9 +86,16 @@ def admin_dashboard(request):
     published_results = Result.objects.filter(is_published=True).count()
     pending_results = Result.objects.filter(is_published=False).count()
     
-    # Get DEAN approved results waiting for publication
+    # Get DEAN approved results waiting for THIS EXAM OFFICER's publication
     dean_approved_count = ResultApprovalWorkflow.objects.filter(
-        status='dean_approved'
+        status='dean_approved',
+        current_exam_officer=admin
+    ).count()
+    
+    # Get workflow statistics
+    workflows_published = ResultApprovalWorkflow.objects.filter(
+        current_exam_officer=admin,
+        status='exam_published'
     ).count()
     
     context = {
@@ -98,6 +106,7 @@ def admin_dashboard(request):
         'published_results': published_results,
         'pending_results': pending_results,
         'dean_approved_count': dean_approved_count,
+        'workflows_published': workflows_published,
     }
     
     return render(request, 'admin/admin_dashboard.html', context)
@@ -457,39 +466,38 @@ def admin_logout(request):
 
 @login_required(login_url='admin_login')
 def manage_dean_approved_results(request):
-    """Manage dean-approved results for publication"""
+    """Manage dean-approved results for publication by EXAM Officer"""
     try:
         admin = request.user.exam_officer_profile
     except:
         return redirect('admin_login')
     
-    # Get all dean-approved workflows
+    # Get all dean-approved workflows waiting for EXAM Officer
+    q = request.GET.get('q', '').strip()
     workflows = ResultApprovalWorkflow.objects.filter(
-        status='dean_approved'
-    ).select_related('result', 'result__student', 'current_dean').order_by('-dean_approved_date')
+        status='dean_approved',
+        current_exam_officer=admin
+    ).select_related('result__student', 'current_dean', 'current_hod').order_by('-dean_reviewed_at')
     
-    # Filter options
-    faculty_filter = request.GET.get('faculty')
-    department_filter = request.GET.get('department')
+    # Search by student ID or subject
+    if q:
+        workflows = workflows.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
     
-    if faculty_filter:
-        workflows = workflows.filter(result__faculty_id=faculty_filter)
-    
-    if department_filter:
-        workflows = workflows.filter(result__department_id=department_filter)
-    
-    paginator = Paginator(workflows, 15)
-    page_number = request.GET.get('page')
+    paginator = Paginator(workflows, 20)
+    page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-    
-    faculties = Faculty.objects.all()
-    departments = Department.objects.all()
     
     context = {
         'page_obj': page_obj,
         'workflows': page_obj.object_list,
-        'faculties': faculties,
-        'departments': departments,
+        'q': q,
+        'pending_count': ResultApprovalWorkflow.objects.filter(
+            status='dean_approved',
+            current_exam_officer=admin
+        ).count(),
     }
     
     return render(request, 'admin/manage_dean_approved_results.html', context)
@@ -497,26 +505,27 @@ def manage_dean_approved_results(request):
 
 @login_required(login_url='admin_login')
 def publish_result(request, workflow_id):
-    """Publish a dean-approved result"""
+    """EXAM Officer publishes or rejects a dean-approved result"""
     try:
         admin = request.user.exam_officer_profile
     except:
         return redirect('admin_login')
     
-    workflow = get_object_or_404(ResultApprovalWorkflow, id=workflow_id, status='dean_approved')
+    workflow = get_object_or_404(ResultApprovalWorkflow, id=workflow_id, status='dean_approved', current_exam_officer=admin)
     
     if request.method == 'POST':
         action = request.POST.get('action')
         notes = request.POST.get('notes', '')
         
         if action == 'publish':
-            # Publish the result
+            # Publish the result - mark as published and update workflow status
             workflow.result.is_published = True
+            workflow.result.published_date = timezone.now()
             workflow.result.save()
             
             workflow.status = 'exam_published'
-            workflow.exam_published_date = timezone.now()
-            workflow.exam_notes = notes
+            workflow.exam_reviewed_at = timezone.now()
+            workflow.exam_notes = notes if notes else 'Approved and published by EXAM Officer'
             workflow.save()
             
             # Log the action in ApprovalHistory
@@ -524,16 +533,16 @@ def publish_result(request, workflow_id):
                 workflow=workflow,
                 action='exam_published',
                 admin_user=request.user,
-                notes=notes if notes else 'Result published by EXAM Officer'
+                notes=notes
             )
             
-            messages.success(request, 'Result published successfully!')
+            messages.success(request, f'Result for {workflow.result.student.student_id} - {workflow.result.subject} published successfully!')
             return redirect('manage_dean_approved_results')
         
         elif action == 'reject':
             # Reject the result - send back to DEAN
-            workflow.status = 'exam_rejected'
-            workflow.exam_rejected_date = timezone.now()
+            workflow.status = 'dean_rejected'  # Change back to allow DEAN to review
+            workflow.exam_reviewed_at = timezone.now()
             workflow.exam_notes = notes
             workflow.save()
             
@@ -542,15 +551,16 @@ def publish_result(request, workflow_id):
                 workflow=workflow,
                 action='exam_rejected',
                 admin_user=request.user,
-                notes=notes if notes else 'Result rejected by EXAM Officer'
+                notes=notes
             )
             
-            messages.success(request, 'Result rejected and sent back to DEAN for review.')
+            messages.warning(request, f'Result for {workflow.result.student.student_id} - {workflow.result.subject} rejected. Sent back to DEAN for review.')
             return redirect('manage_dean_approved_results')
     
     context = {
         'workflow': workflow,
         'result': workflow.result,
+        'student': workflow.result.student,
     }
     
     return render(request, 'admin/publish_result.html', context)
