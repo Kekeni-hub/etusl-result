@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db.models import Q
 
 from .models import HeadOfDepartment, DeanOfFaculty, ResultApprovalWorkflow, ApprovalHistory
 from student.models import Student, Result, Department, Faculty, Program
@@ -221,23 +222,56 @@ def dean_dashboard(request):
         return redirect('dean_login')
     
     # Get pending workflows for this DEAN's faculty
-    pending_workflows = ResultApprovalWorkflow.objects.filter(
+    pending_qs = ResultApprovalWorkflow.objects.filter(
         current_dean=dean,
         status='hod_approved'
-        ).select_related('result__student', 'current_hod')
-    
+    ).select_related('result__student', 'current_hod')
+
     # Get DEAN-approved but not yet sent to EXAM
-    approved_by_dean = ResultApprovalWorkflow.objects.filter(
+    approved_qs = ResultApprovalWorkflow.objects.filter(
         current_dean=dean,
         status='dean_approved'
-        ).select_related('result__student')
+    ).select_related('result__student')
+
+    # Filtering (search) by student id or subject
+    q = request.GET.get('q', '').strip()
+    if q:
+        pending_qs = pending_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+        approved_qs = approved_qs.filter(
+            Q(result__student__student_id__icontains=q) |
+            Q(result__subject__icontains=q)
+        )
+
+    # Paginate both lists (10 per page)
+    pending_page_number = request.GET.get('pending_page', 1)
+    approved_page_number = request.GET.get('approved_page', 1)
+
+    pending_paginator = Paginator(pending_qs, 10)
+    approved_paginator = Paginator(approved_qs, 10)
+
+    try:
+        pending_page = pending_paginator.get_page(pending_page_number)
+    except:
+        pending_page = pending_paginator.get_page(1)
+
+    try:
+        approved_page = approved_paginator.get_page(approved_page_number)
+    except:
+        approved_page = approved_paginator.get_page(1)
     
     context = {
         'dean': dean,
-        'pending_count': pending_workflows.count(),
-        'approved_count': approved_by_dean.count(),
-        'pending_workflows': pending_workflows[:10],
-        'approved_workflows': approved_by_dean[:10],
+        'pending_count': pending_qs.count(),
+        'approved_count': approved_qs.count(),
+        'pending_page': pending_page,
+        'approved_page': approved_page,
+        'q': q,
+        # Extra counts for dashboard widgets
+        'hod_count': HeadOfDepartment.objects.filter(department__faculty=dean.faculty).count(),
+        'total_count': Result.objects.filter(faculty=dean.faculty).count(),
     }
     
     return render(request, 'admin_hierarchy/dean_dashboard.html', context)

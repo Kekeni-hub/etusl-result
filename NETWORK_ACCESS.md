@@ -7,6 +7,7 @@
 #### Option A: Using Batch Script (Easiest)
 
 ```batch
+cd c:\Etu_student_result
 .\run_network.bat
 ```
 

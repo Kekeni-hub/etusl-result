@@ -245,11 +245,11 @@
             <div class="section-title">Submission Timeline</div>
             <div class="info-row">
                 <div class="info-label">Lecturer Submitted:</div>
-                <div class="info-value">{{ workflow.created_at|date:"M d, Y H:i" }}</div>
+                <div class="info-value">{{ workflow.lecturer_submitted_at|date:"M d, Y H:i" }}</div>
             </div>
             <div class="info-row">
                 <div class="info-label">HOD Approved:</div>
-                <div class="info-value">{{ workflow.hod_approved_date|date:"M d, Y H:i" }}</div>
+                <div class="info-value">{{ workflow.hod_reviewed_at|date:"M d, Y H:i" }}</div>
             </div>
             <div class="info-row">
                 <div class="info-label">Head of Department:</div>

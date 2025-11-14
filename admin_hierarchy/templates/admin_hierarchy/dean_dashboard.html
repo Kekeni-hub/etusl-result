@@ -101,6 +101,7 @@
     </style>
 </head>
 <body>
+    {% load static %}
     <div class="row g-0">
         <!-- Sidebar -->
         <div class="col-md-3 sidebar">
@@ -138,6 +139,16 @@
                 <span class="badge bg-success">{{ dean.faculty.name }} Faculty</span>
             </div>
 
+            <!-- Search / Filter -->
+            <form method="get" class="row g-2 mb-3" role="search">
+                <div class="col-auto">
+                    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by student ID or subject" aria-label="Search">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
+                </div>
+            </form>
+
             <!-- Statistics -->
             <div class="row">
                 <div class="col-md-3">
@@ -169,8 +180,8 @@
             <!-- Pending HOD Approvals -->
             <div id="pending" class="table-container">
                 <h4><i class="fas fa-clock"></i> Pending HOD Approvals (Ready for DEAN Review)</h4>
-                {% if pending_workflows %}
-                    <table class="table table-hover">
+                {% if pending_page.object_list %}
+                    <table class="table table-hover table-striped">
                         <thead>
                             <tr>
                                 <th>Student</th>
@@ -178,34 +189,55 @@
                                 <th>Score</th>
                                 <th>Grade</th>
                                 <th>HOD</th>
-                                <th>Approved by HOD</th>
+                                <th>HOD Reviewed At</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for workflow in pending_workflows %}
+                            {% for workflow in pending_page.object_list %}
                                 <tr>
                                     <td style="width:60px;">
-                                        {% load static %}
                                         {% if workflow.result.student.photo %}
                                             <img src="{{ workflow.result.student.photo.url }}" alt="{{ workflow.result.student.user.get_full_name }}" style="height:40px;border-radius:50%;" />
                                         {% else %}
                                             <img src="{% static 'img/avatar-placeholder.svg' %}" alt="No photo" style="height:40px;border-radius:50%;" />
                                         {% endif %}
                                     </td>
-                                    <td>{{ workflow.result.student.registration_number }}</td>
+                                    <td>{{ workflow.result.student.student_id }}</td>
                                     <td>{{ workflow.result.subject }}</td>
                                     <td>{{ workflow.result.score }}/{{ workflow.result.total_score }}</td>
                                     <td><span class="badge bg-info">{{ workflow.result.grade }}</span></td>
                                     <td>{{ workflow.current_hod.user.get_full_name }}</td>
-                                    <td>{{ workflow.hod_approved_date|date:"M d, Y" }}</td>
+                                    <td>{{ workflow.hod_reviewed_at|date:"M d, Y" }}</td>
                                     <td>
-                                        <a href="{% url 'dean_review_result' workflow.id %}" class="btn-review">Review</a>
+                                        <a href="{% url 'dean_review_result' workflow.id %}" class="btn-review">Operate</a>
                                     </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                    <!-- Pagination for pending -->
+                    {% if pending_page.paginator.num_pages > 1 %}
+                        <nav aria-label="Pending pages">
+                            <ul class="pagination">
+                                {% if pending_page.has_previous %}
+                                    <li class="page-item"><a class="page-link" href="?pending_page={{ pending_page.previous_page_number }}&approved_page={{ approved_page.number }}">&laquo;</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                                {% endif %}
+
+                                {% for p in pending_page.paginator.page_range %}
+                                    <li class="page-item {% if p == pending_page.number %}active{% endif %}"><a class="page-link" href="?pending_page={{ p }}&approved_page={{ approved_page.number }}">{{ p }}</a></li>
+                                {% endfor %}
+
+                                {% if pending_page.has_next %}
+                                    <li class="page-item"><a class="page-link" href="?pending_page={{ pending_page.next_page_number }}&approved_page={{ approved_page.number }}">&raquo;</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-info">No pending HOD approvals at this time.</div>
                 {% endif %}
@@ -214,8 +246,8 @@
             <!-- Dean Approved Items -->
             <div id="finalized" class="table-container">
                 <h4><i class="fas fa-check-double"></i> Results Approved by DEAN (Forwarded to EXAM Officer)</h4>
-                {% if approved_workflows %}
-                    <table class="table table-hover">
+                {% if approved_page.object_list %}
+                    <table class="table table-hover table-striped">
                         <thead>
                             <tr>
                                 <th>Student</th>
@@ -224,23 +256,49 @@
                                 <th>Grade</th>
                                 <th>HOD</th>
                                 <th>Status</th>
-                                <th>Approved Date</th>
+                                <th>DEAN Reviewed At</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for workflow in approved_workflows %}
+                            {% for workflow in approved_page.object_list %}
                                 <tr>
-                                    <td>{{ workflow.result.student.registration_number }}</td>
+                                    <td>{{ workflow.result.student.student_id }}</td>
                                     <td>{{ workflow.result.subject }}</td>
                                     <td>{{ workflow.result.score }}/{{ workflow.result.total_score }}</td>
                                     <td><span class="badge bg-info">{{ workflow.result.grade }}</span></td>
                                     <td>{{ workflow.current_hod.user.get_full_name }}</td>
                                     <td><span class="badge bg-success">DEAN Approved</span></td>
-                                    <td>{{ workflow.dean_approved_date|date:"M d, Y" }}</td>
+                                    <td>{{ workflow.dean_reviewed_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'dean_review_result' workflow.id %}" class="btn-review">View / Operate</a>
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                    <!-- Pagination for approved -->
+                    {% if approved_page.paginator.num_pages > 1 %}
+                        <nav aria-label="Approved pages">
+                            <ul class="pagination">
+                                {% if approved_page.has_previous %}
+                                    <li class="page-item"><a class="page-link" href="?approved_page={{ approved_page.previous_page_number }}&pending_page={{ pending_page.number }}">&laquo;</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+                                {% endif %}
+
+                                {% for p in approved_page.paginator.page_range %}
+                                    <li class="page-item {% if p == approved_page.number %}active{% endif %}"><a class="page-link" href="?approved_page={{ p }}&pending_page={{ pending_page.number }}">{{ p }}</a></li>
+                                {% endfor %}
+
+                                {% if approved_page.has_next %}
+                                    <li class="page-item"><a class="page-link" href="?approved_page={{ approved_page.next_page_number }}&pending_page={{ pending_page.number }}">&raquo;</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-info">No DEAN approved results yet.</div>
                 {% endif %}
