@@ -22,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY: load secret key from environment for production (PythonAnywhere)
+# SECURITY: load secret key from environment for production
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-3tzq-vw2651m^3fsbu+6s@$1x14bdy$x2uq#r2ddo6f^4brh$r')
 
 # DEBUG should be disabled in production. Use DJANGO_DEBUG env var to override.
@@ -36,10 +36,7 @@ else:
     # sensible defaults for local development; set DJANGO_ALLOWED_HOSTS for production
     ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'etusl']
 
-# If running on PythonAnywhere, automatically allow the pythonanywhere hostname
-pyah_username = os.environ.get('PYTHONANYWHERE_USERNAME') or os.environ.get('USER')
-if pyah_username and not any(pyah_username + '.pythonanywhere.com' == h for h in ALLOWED_HOSTS):
-    ALLOWED_HOSTS.append(f"{pyah_username}.pythonanywhere.com")
+# No automatic platform-specific hostname injection. Set `DJANGO_ALLOWED_HOSTS` env var in production.
 
 # ============================================================
 # SECURITY HARDENING CONFIGURATION
@@ -50,7 +47,7 @@ SECURE_SSL_REDIRECT = os.environ.get('DJANGO_ENABLE_SSL', 'false').lower() in ('
 SESSION_COOKIE_SECURE = os.environ.get('DJANGO_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes')
 CSRF_COOKIE_SECURE = os.environ.get('DJANGO_CSRF_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes')
 
-# When Django is behind a proxy (PythonAnywhere), use this header to detect HTTPS
+# When Django is behind a proxy, use this header to detect HTTPS (set via env if needed)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # 2. SECURITY HEADERS & PROTECTIONS
@@ -190,7 +187,8 @@ DATABASES = {
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
     try:
-        import dj_database_url
+        # dj-database-url is optional in development; suppress Pylance missing-imports warning
+        import dj_database_url  # type: ignore
         DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     except Exception:
         # Minimal parse for mysql://user:pass@host:port/dbname if dj_database_url not installed
@@ -206,14 +204,22 @@ if DATABASE_URL:
                 'OPTIONS': {'charset': 'utf8mb4'},
             }
 
-# PythonAnywhere: prefer HOME-based static/media roots when deployed
-if os.environ.get('PYTHONANYWHERE_DOMAIN') or os.environ.get('PYTHONANYWHERE_USERNAME') or os.environ.get('HOME'):
-    HOME = os.environ.get('HOME', str(BASE_DIR))
-    STATIC_ROOT = os.path.join(HOME, 'staticfiles')
-    MEDIA_ROOT = os.path.join(HOME, 'media')
-else:
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
-    MEDIA_ROOT = BASE_DIR / 'media'
+# If no DATABASE_URL provided, use SQLite for local development when DEBUG is True.
+if not DATABASE_URL:
+    if DEBUG:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+    else:
+        # Production fallback: keep the MySQL default defined above.
+        pass
+
+# Static and media roots (default locations). Override in env or deployment platform if needed.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # Password validation
@@ -254,8 +260,30 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-# STATIC_ROOT and MEDIA_ROOT are set earlier to prefer HOME when on PythonAnywhere
 MEDIA_URL = '/media/'
+
+# Ensure STATIC_ROOT and MEDIA_ROOT are strings (useful for some storage backends)
+try:
+    STATIC_ROOT = str(STATIC_ROOT)
+except Exception:
+    STATIC_ROOT = str(BASE_DIR / 'staticfiles')
+
+try:
+    MEDIA_ROOT = str(MEDIA_ROOT)
+except Exception:
+    MEDIA_ROOT = str(BASE_DIR / 'media')
+
+# Optionally enable WhiteNoise for static file serving (set DJANGO_USE_WHITENOISE=true)
+if os.environ.get('DJANGO_USE_WHITENOISE', 'false').lower() in ('1', 'true', 'yes'):
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    # Insert WhiteNoise middleware right after SecurityMiddleware if not already present
+    whitenoise_mw = 'whitenoise.middleware.WhiteNoiseMiddleware'
+    if whitenoise_mw not in MIDDLEWARE:
+        try:
+            idx = MIDDLEWARE.index('django.middleware.security.SecurityMiddleware') + 1
+        except ValueError:
+            idx = 0
+        MIDDLEWARE.insert(idx, whitenoise_mw)
 
 # Login settings
 LOGIN_URL = 'home'
