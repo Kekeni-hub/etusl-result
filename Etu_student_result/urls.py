@@ -25,17 +25,41 @@ from student.api.views import StudentViewSet, ResultViewSet, TokenRotateView
 from rest_framework.authtoken import views as drf_auth_views
 from .firebase_views import FirebaseVerifyView
 from admin_hierarchy.api_views import DeviceTokenView
+from student.serializers_enhanced import (
+    CumulativeGPAViewSet,
+    TranscriptViewSet,
+    StudentProgressTrackerViewSet,
+    StudentNotificationViewSet,
+    GradeDistributionViewSet,
+    ClassPerformanceViewSet,
+    CourseOfferingViewSet,
+    StudentEnrollmentViewSet,
+    AssignmentViewSet,
+    AssignmentSubmissionViewSet,
+)
 
 # API router
 router = routers.DefaultRouter()
 router.register(r'students', StudentViewSet, basename='api-students')
 router.register(r'results', ResultViewSet, basename='api-results')
+# Enhanced feature endpoints
+router.register(r'gpa', CumulativeGPAViewSet, basename='api-gpa')
+router.register(r'transcripts', TranscriptViewSet, basename='api-transcripts')
+router.register(r'progress', StudentProgressTrackerViewSet, basename='api-progress')
+router.register(r'notifications', StudentNotificationViewSet, basename='api-notifications')
+router.register(r'grade-distribution', GradeDistributionViewSet, basename='api-grade-distribution')
+router.register(r'class-performance', ClassPerformanceViewSet, basename='api-class-performance')
+router.register(r'course-offerings', CourseOfferingViewSet, basename='api-course-offerings')
+router.register(r'enrollments', StudentEnrollmentViewSet, basename='api-enrollments')
+router.register(r'assignments', AssignmentViewSet, basename='api-assignments')
+router.register(r'assignment-submissions', AssignmentSubmissionViewSet, basename='api-assignment-submissions')
 
 urlpatterns = [
     path('', home, name='home'),
     # Django admin enabled again per user request.
     path('admin/', admin.site.urls),
     path('student/', include('student.urls')),
+    path('student/enhanced/', include('student.urls_enhanced')),
     path('lecturer/', include('lecturer.urls')),
     path('officer/', include('exam_officer.urls')),
     path('admin-hierarchy/', include('admin_hierarchy.urls')),
@@ -48,7 +72,7 @@ urlpatterns = [
     path('api/token-rotate/', TokenRotateView.as_view(), name='api_token_rotate'),
     # Firebase endpoints
     path('firebase/verify-token/', FirebaseVerifyView.as_view(), name='firebase_verify_token'),
-    path('api/device-tokens/', DeviceTokenView.as_view(), name='api_device_tokens'),
+    path('api/device-tokens/', DeviceTokenView.as_view(), name='device-tokens'),
 ]
 
 if settings.DEBUG:
