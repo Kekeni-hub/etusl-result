@@ -174,27 +174,30 @@
                             </li>
                         {% endif %}
                     {% else %}
-                        <!-- Student Login -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'student_login' %}">
-                                <i class="fas fa-user-graduate me-1"></i>Student
-                            </a>
-                        </li>
-                        
-                        <!-- Admin Dropdown -->
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-user-tie me-1"></i>Admin
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
-                                <li><a class="dropdown-item" href="{% url 'admin_portal' %}">All Admin Types</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'admin_login' %}">Exam Officer</a></li>
-                                <li><a class="dropdown-item" href="{% url 'lecturer_login' %}">Lecturer</a></li>
-                                <li><a class="dropdown-item" href="{% url 'hod_login' %}">HOD</a></li>
-                                <li><a class="dropdown-item" href="{% url 'dean_login' %}">Dean</a></li>
-                            </ul>
-                        </li>
+                        <!-- Show login options only on home page -->
+                        {% if request.resolver_match.url_name == 'home' %}
+                            <!-- Student Login -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'student_login' %}">
+                                    <i class="fas fa-user-graduate me-1"></i>Student
+                                </a>
+                            </li>
+                            
+                            <!-- Admin Dropdown -->
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-user-tie me-1"></i>Admin
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'admin_portal' %}">All Admin Types</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'admin_login' %}">Exam Officer</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'lecturer_login' %}">Lecturer</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'hod_login' %}">HOD</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'dean_login' %}">Dean</a></li>
+                                </ul>
+                            </li>
+                        {% endif %}
                     {% endif %}
                 </ul>
             </div>
