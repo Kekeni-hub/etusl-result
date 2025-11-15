@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Performance View{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Student Performance View</h2>
+            <p class="text-muted">View detailed performance metrics for students by course and semester.</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Select Programme & Academic Period</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Programme</label>
+                            <select name="program" class="form-select" required>
+                                <option value="">-- Select Programme --</option>
+                                {% for prog in programs %}
+                                    <option value="{{ prog.id }}" {% if selected_program.id == prog.id %}selected{% endif %}>
+                                        {{ prog.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Academic Year</label>
+                            <input type="text" name="academic_year" class="form-control" 
+                                   placeholder="e.g., 2024/2025" value="{{ selected_year }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Semester</label>
+                            <select name="semester" class="form-select" required>
+                                <option value="">-- Select Semester --</option>
+                                {% for sem_val, sem_label in semesters %}
+                                    <option value="{{ sem_val }}" {% if selected_semester == sem_val %}selected{% endif %}>
+                                        {{ sem_label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-primary">View Performance</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if selected_program %}
+        <!-- Summary Statistics -->
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-info border-0">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Total Students</h5>
+                        <h2>{{ summary.total_students }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success border-0">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Passed</h5>
+                        <h2>{{ summary.passed }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-danger border-0">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Failed</h5>
+                        <h2>{{ summary.failed }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning border-0">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Avg Score</h5>
+                        <h2>{{ summary.average_score|floatformat:1 }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Distribution -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Grade Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Grade</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for grade, count in summary.grade_distribution.items %}
+                                    {% if count > 0 %}
+                                        <tr>
+                                            <td><strong>{{ grade }}</strong></td>
+                                            <td>{{ count }}</td>
+                                            <td>
+                                                {% if summary.total_students > 0 %}
+                                                    {{ count|floatformat:0 }}% ({{ count }}/{{ summary.total_students }})
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Pass/Fail Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Pass Rate</span>
+                                <strong>
+                                    {% if summary.total_students > 0 %}
+                                        {{ summary.passed|floatformat:0 }}% ({{ summary.passed }}/{{ summary.total_students }})
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </strong>
+                            </div>
+                            <div class="progress" style="height: 25px;">
+                                {% if summary.total_students > 0 %}
+                                    {% with pass_percent=summary.passed|add:0 %}
+                                        <div class="progress-bar bg-success" 
+                                             style="width: {% widthratio summary.passed summary.total_students 100 %}%">
+                                            {{ summary.passed }}
+                                        </div>
+                                    {% endwith %}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Fail Rate</span>
+                                <strong>
+                                    {% if summary.total_students > 0 %}
+                                        {{ summary.failed|floatformat:0 }}% ({{ summary.failed }}/{{ summary.total_students }})
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </strong>
+                            </div>
+                            <div class="progress" style="height: 25px;">
+                                {% if summary.total_students > 0 %}
+                                    <div class="progress-bar bg-danger" 
+                                         style="width: {% widthratio summary.failed summary.total_students 100 %}%">
+                                        {{ summary.failed }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Student Performance -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Detailed Student Performance</h5>
+                        <div>
+                            <button class="btn btn-sm btn-light" onclick="window.print()">Print</button>
+                            <button class="btn btn-sm btn-light" id="exportBtn" onclick="exportToCSV()">Export CSV</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if students_data %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm" id="performanceTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Student ID</th>
+                                            <th>Name</th>
+                                            <th>Courses Taken</th>
+                                            <th>Average Score</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in students_data %}
+                                            <tr>
+                                                <td><strong>{{ student.student_id }}</strong></td>
+                                                <td>{{ student.name }}</td>
+                                                <td>{{ student.courses|length }}</td>
+                                                <td>
+                                                    <strong>{{ student.avg_score|floatformat:1 }}/100</strong>
+                                                </td>
+                                                <td>
+                                                    {% if student.status == 'Pass' %}
+                                                        <span class="badge bg-success">{{ student.status }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">{{ student.status }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% if student.courses %}
+                                                <tr class="table-light">
+                                                    <td colspan="5">
+                                                        <strong>Courses:</strong>
+                                                        <div class="mt-2">
+                                                            {% for course in student.courses %}
+                                                                <div class="mb-3 p-2" style="background-color: #f8f9fa; border-left: 3px solid #0d6efd;">
+                                                                    <div class="row">
+                                                                        <div class="col-md-6">
+                                                                            <h6 class="mb-2">{{ course.subject }}</h6>
+                                                                            <small class="text-muted">Type: {{ course.result_type }}</small>
+                                                                        </div>
+                                                                        <div class="col-md-6 text-end">
+                                                                            <div class="mb-2">
+                                                                                <strong>Total: {{ course.total_score }}/{{ course.total_possible }}</strong>
+                                                                                <span class="badge bg-primary">{{ course.grade }}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {% if course.ca_components %}
+                                                                        <div class="mt-2">
+                                                                            <strong>CA Components:</strong>
+                                                                            <table class="table table-sm table-borderless mt-2">
+                                                                                <tr>
+                                                                                    <th>Type</th>
+                                                                                    <th>Score</th>
+                                                                                    <th>%</th>
+                                                                                </tr>
+                                                                                {% for ca in course.ca_components %}
+                                                                                    <tr>
+                                                                                        <td>{{ ca.type }}</td>
+                                                                                        <td>{{ ca.score }}/{{ ca.total }}</td>
+                                                                                        <td>{{ ca.percentage|floatformat:1 }}%</td>
+                                                                                    </tr>
+                                                                                {% endfor %}
+                                                                            </table>
+                                                                        </div>
+                                                                    {% endif %}
+
+                                                                    {% if course.exam_score %}
+                                                                        <div class="mt-2">
+                                                                            <strong>Exam:</strong>
+                                                                            <table class="table table-sm table-borderless mt-2">
+                                                                                <tr>
+                                                                                    <td>Score</td>
+                                                                                    <td>{{ course.exam_score.score }}/{{ course.exam_score.total }}</td>
+                                                                                    <td>({{ course.exam_score.percentage|floatformat:1 }}%)</td>
+                                                                                </tr>
+                                                                            </table>
+                                                                        </div>
+                                                                    {% endif %}
+                                                                </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No performance data available for the selected period. Please ensure results have been uploaded.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function exportToCSV() {
+    const table = document.getElementById('performanceTable');
+    let csv = [];
+    
+    // Get headers
+    const headers = Array.from(table.querySelectorAll('thead tr th')).map(th => th.textContent);
+    csv.push(headers.join(','));
+    
+    // Get body rows
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cols = row.querySelectorAll('td');
+        if (cols.length > 0 && !row.classList.contains('table-light')) {
+            const rowData = Array.from(cols).slice(0, 5).map(td => '"' + td.textContent.trim() + '"');
+            csv.push(rowData.join(','));
+        }
+    });
+    
+    // Download
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_performance_{{ selected_year }}_sem{{ selected_semester }}.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+
+{% endblock %}

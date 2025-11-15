@@ -31,5 +31,10 @@ urlpatterns = [
     path('upload-results-csv/', views.upload_results_csv, name='upload_results_csv'),
     path('download-csv-template/', views.download_csv_template, name='download_csv_template'),
     
+    # Student Performance and Course Management
+    path('student-performance/', views.student_performance_view, name='student_performance_view'),
+    path('course-management/', views.course_management, name='course_management'),
+    path('course/<int:course_id>/export-class-list/', views.export_class_list, name='export_class_list'),
+    
     path('logout/', views.lecturer_logout, name='lecturer_logout'),
 ]

@@ -7,10 +7,12 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.core import serializers
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from datetime import datetime
 import json
+import csv
+from collections import defaultdict
 
 from .models import Lecturer
 from .forms import LecturerProfileForm
@@ -383,9 +385,36 @@ def upload_results(request):
         try:
             program = Program.objects.get(id=program_id)
 
+            # server-side locking: if an existing result has an active workflow (not rejected), deny edit
+            allowed_edit_statuses = ['hod_rejected', 'dean_rejected', 'exam_rejected']
+            created_count = 0
+            errors = []
+
             for i, student_id in enumerate(students):
-                student = Student.objects.get(id=student_id)
-                score = float(scores[i]) if i < len(scores) else 0
+                try:
+                    student = Student.objects.get(id=student_id)
+                except Student.DoesNotExist:
+                    errors.append(f'Student id {student_id} not found')
+                    continue
+
+                try:
+                    score = float(scores[i]) if i < len(scores) else 0
+                except Exception:
+                    score = 0
+
+                # Check for existing result and lock state
+                existing = Result.objects.filter(
+                    student=student,
+                    subject=subject,
+                    academic_year=academic_year,
+                    semester=semester,
+                    result_type=result_type,
+                ).first()
+
+                if existing and hasattr(existing, 'approval_workflow') and existing.approval_workflow:
+                    if existing.approval_workflow.status not in allowed_edit_statuses:
+                        errors.append(f'Result for {student.student_id} is locked (status: {existing.approval_workflow.get_status_display()}). Cannot edit until review completes or it is rejected.')
+                        continue
 
                 # Calculate grade
                 percentage = (score / float(total_score)) * 100 if float(total_score) else 0
@@ -417,6 +446,8 @@ def upload_results(request):
                     }
                 )
 
+                created_count += 1
+
                 hod = HeadOfDepartment.objects.filter(department=student.department, is_active=True).first()
                 if hod:
                     workflow, _ = ResultApprovalWorkflow.objects.update_or_create(
@@ -427,7 +458,15 @@ def upload_results(request):
                         }
                     )
 
-            messages.success(request, f'Successfully uploaded results for {len(students)} students. Waiting for HOD approval.')
+            if created_count == 0 and len(errors) > 0:
+                messages.error(request, f'No results were updated due to locking or errors: ' + '; '.join(errors[:5]))
+                return redirect('upload_results')
+
+            if errors:
+                messages.warning(request, f'Updated {created_count} results with {len(errors)} warnings: ' + '; '.join(errors[:5]))
+            else:
+                messages.success(request, f'Successfully uploaded results for {created_count} students. Waiting for HOD approval.')
+
             return redirect('lecturer_dashboard')
         except Exception as e:
             messages.error(request, f'Upload failed: {str(e)}')
@@ -625,7 +664,22 @@ def lecturer_edit_result(request, result_id):
 
     result = get_object_or_404(Result, id=result_id, uploaded_by=lecturer)
 
+    # Determine whether this result is currently locked by the approval workflow
+    is_locked = False
+    lock_reason = None
+    if hasattr(result, 'approval_workflow') and result.approval_workflow:
+        # editable only when the workflow is in a rejected state
+        editable_statuses = ['hod_rejected', 'dean_rejected', 'exam_rejected']
+        if result.approval_workflow.status not in editable_statuses:
+            is_locked = True
+            lock_reason = result.approval_workflow.get_status_display()
+
     if request.method == 'POST':
+        # Prevent POST updates when locked
+        if is_locked:
+            messages.error(request, 'This result is currently locked for editing (status: {}). Please wait until the review completes or the result is rejected.'.format(lock_reason))
+            return redirect('lecturer_results_list')
+
         # require an explicit confirmation param
         confirm = request.POST.get('confirm')
         if not confirm:
@@ -672,6 +726,8 @@ def lecturer_edit_result(request, result_id):
     context = {
         'result': result,
         'lecturer': lecturer,
+        'is_locked': is_locked,
+        'lock_reason': lock_reason,
     }
     return render(request, 'lecturer/edit_result.html', context)
 
@@ -1204,4 +1260,402 @@ def download_csv_template(request):
     
     return response
 
+
+# ==================== STUDENT PERFORMANCE VIEW ====================
+
+@login_required(login_url='lecturer_login')
+def student_performance_view(request):
+    """
+    View showing per-course and per-student breakdown of results with:
+    - CA components and scores
+    - Exam score
+    - Total score & grade
+    - Class summary (pass/fail, grade distribution)
+    - Print/export options
+    """
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    # Get filter parameters
+    program_id = request.GET.get('program')
+    academic_year = request.GET.get('academic_year')
+    semester = request.GET.get('semester')
+    
+    # Get all programs the lecturer can teach
+    programs = Program.objects.all().order_by('name')
+    
+    context = {
+        'programs': programs,
+        'current_year': datetime.now().year,
+        'semesters': [('1', 'Semester 1'), ('2', 'Semester 2')],
+    }
+    
+    # Initialize results containers
+    students_data = []
+    summary_data = {
+        'total_students': 0,
+        'passed': 0,
+        'failed': 0,
+        'grade_distribution': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0},
+        'average_score': 0,
+    }
+    
+    if program_id and academic_year and semester:
+        try:
+            program = Program.objects.get(id=program_id)
+            context['selected_program'] = program
+            context['selected_year'] = academic_year
+            context['selected_semester'] = semester
+            
+            # Get all students in the program
+            students = Student.objects.filter(program=program, is_active=True).select_related('user', 'program')
+            
+            if students.exists():
+                summary_data['total_students'] = students.count()
+                total_score_sum = 0
+                
+                for student in students:
+                    # Get all results for this student in the selected period
+                    results = Result.objects.filter(
+                        student=student,
+                        academic_year=academic_year,
+                        semester=semester,
+                    ).select_related('uploaded_by')
+                    
+                    if results.exists():
+                        student_info = {
+                            'id': student.id,
+                            'student_id': student.student_id,
+                            'name': student.user.get_full_name(),
+                            'courses': [],
+                            'total_score': 0,
+                            'avg_score': 0,
+                            'grade': 'N/A',
+                            'status': 'N/A',
+                        }
+                        
+                        course_scores = []
+                        for result in results:
+                            # Get assessments for this result
+                            assessments = Assessment.objects.filter(
+                                student=student,
+                                module__name=result.subject,
+                                academic_year=academic_year,
+                                semester=semester,
+                            ).order_by('assessment_type')
+                            
+                            ca_data = []
+                            exam_score = None
+                            
+                            for assessment in assessments:
+                                if assessment.assessment_type == 'exam':
+                                    exam_score = {
+                                        'score': float(assessment.score),
+                                        'total': float(assessment.total_score),
+                                        'percentage': assessment.percentage,
+                                    }
+                                else:
+                                    ca_data.append({
+                                        'type': assessment.get_assessment_type_display(),
+                                        'score': float(assessment.score),
+                                        'total': float(assessment.total_score),
+                                        'percentage': assessment.percentage,
+                                    })
+                            
+                            course_info = {
+                                'subject': result.subject,
+                                'ca_components': ca_data,
+                                'exam_score': exam_score,
+                                'total_score': float(result.score),
+                                'total_possible': float(result.total_score),
+                                'grade': result.grade,
+                                'result_type': result.get_result_type_display(),
+                            }
+                            
+                            student_info['courses'].append(course_info)
+                            course_scores.append(float(result.score))
+                        
+                        if course_scores:
+                            student_info['avg_score'] = sum(course_scores) / len(course_scores)
+                            student_info['total_score'] = sum(course_scores)
+                            student_info['status'] = 'Pass' if student_info['avg_score'] >= 50 else 'Fail'
+                            total_score_sum += student_info['avg_score']
+                        
+                        students_data.append(student_info)
+                
+                # Calculate summary statistics
+                if students_data:
+                    summary_data['average_score'] = total_score_sum / len(students_data)
+                    summary_data['passed'] = sum(1 for s in students_data if s['status'] == 'Pass')
+                    summary_data['failed'] = summary_data['total_students'] - summary_data['passed']
+                    
+                    # Calculate grade distribution
+                    for student in students_data:
+                        for course in student['courses']:
+                            grade = course['grade']
+                            if grade in summary_data['grade_distribution']:
+                                summary_data['grade_distribution'][grade] += 1
+        
+        except Program.DoesNotExist:
+            messages.error(request, 'Selected program not found.')
+    
+    context['students_data'] = students_data
+    context['summary'] = summary_data
+    
+    return render(request, 'lecturer/student_performance_view.html', context)
+
+
+@login_required(login_url='lecturer_login')
+def course_management(request):
+    """
+    View showing course info and class list with:
+    - Course code, title, credit hours, programme, level
+    - Class list with student names and reg numbers
+    - Download class list (Excel/PDF)
+    - Previous-year performance comparison
+    """
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    # Get filter parameters
+    program_id = request.GET.get('program')
+    academic_year = request.GET.get('academic_year')
+    semester = request.GET.get('semester')
+    
+    # Get all programs
+    programs = Program.objects.all().order_by('name')
+    
+    context = {
+        'programs': programs,
+        'current_year': datetime.now().year,
+        'semesters': [('1', 'Semester 1'), ('2', 'Semester 2')],
+    }
+    
+    courses_info = []
+    
+    if program_id and academic_year and semester:
+        try:
+            program = Program.objects.get(id=program_id)
+            context['selected_program'] = program
+            context['selected_year'] = academic_year
+            context['selected_semester'] = semester
+            
+            # Get all modules/courses for this program
+            modules = Module.objects.filter(program=program).select_related('program', 'department', 'faculty')
+            
+            for module in modules:
+                # Get all students taking this course
+                students_in_course = Student.objects.filter(
+                    program=program,
+                    is_active=True,
+                ).select_related('user', 'program', 'department')
+                
+                # Get results for this course
+                course_results = Result.objects.filter(
+                    subject=module.name,
+                    academic_year=academic_year,
+                    semester=semester,
+                ).select_related('student')
+                
+                # Build class list
+                class_list = []
+                for student in students_in_course:
+                    result = course_results.filter(student=student).first()
+                    class_list.append({
+                        'student_id': student.student_id,
+                        'name': student.user.get_full_name(),
+                        'email': student.email,
+                        'current_year': student.current_year,
+                        'score': result.score if result else '-',
+                        'grade': result.grade if result else '-',
+                        'status': 'Submitted' if result else 'Pending',
+                    })
+                
+                # Get previous year performance if available
+                prev_year_parts = academic_year.split('/')
+                if len(prev_year_parts) == 2:
+                    prev_year = f'{int(prev_year_parts[0]) - 1}/{int(prev_year_parts[1]) - 1}'
+                else:
+                    prev_year = None
+                
+                prev_year_results = None
+                if prev_year:
+                    prev_year_results = Result.objects.filter(
+                        subject=module.name,
+                        academic_year=prev_year,
+                        semester=semester,
+                    ).aggregate(
+                        avg_score=Count('id'),
+                        passed=Count('id', filter=Q(grade__in=['A', 'B', 'C', 'D'])),
+                    )
+                
+                course_info = {
+                    'id': module.id,
+                    'code': module.code,
+                    'name': module.name,
+                    'credits': module.credits,
+                    'program': program.name,
+                    'department': module.department.name if module.department else '-',
+                    'level': getattr(program, 'level', 'N/A'),
+                    'class_list': class_list,
+                    'total_students': len(class_list),
+                    'submitted': len([c for c in class_list if c['status'] == 'Submitted']),
+                    'pending': len([c for c in class_list if c['status'] == 'Pending']),
+                    'previous_year': prev_year,
+                    'prev_year_results': prev_year_results,
+                }
+                
+                courses_info.append(course_info)
+        
+        except Program.DoesNotExist:
+            messages.error(request, 'Selected program not found.')
+    
+    context['courses_info'] = courses_info
+    
+    return render(request, 'lecturer/course_management.html', context)
+
+
+@login_required(login_url='lecturer_login')
+def export_class_list(request, course_id):
+    """
+    Export class list as Excel/CSV
+    """
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    program_id = request.GET.get('program')
+    academic_year = request.GET.get('academic_year')
+    semester = request.GET.get('semester')
+    file_format = request.GET.get('format', 'csv')  # csv or excel
+    
+    if not (program_id and academic_year and semester):
+        messages.error(request, 'Missing required parameters.')
+        return redirect('course_management')
+    
+    try:
+        program = Program.objects.get(id=program_id)
+        module = Module.objects.get(id=course_id, program=program)
+    except (Program.DoesNotExist, Module.DoesNotExist):
+        messages.error(request, 'Course not found.')
+        return redirect('course_management')
+    
+    # Get class list data
+    students = Student.objects.filter(
+        program=program,
+        is_active=True,
+    ).select_related('user', 'program', 'department')
+    
+    results = Result.objects.filter(
+        subject=module.name,
+        academic_year=academic_year,
+        semester=semester,
+    ).select_related('student')
+    
+    result_map = {r.student_id: r for r in results}
+    
+    # Create CSV response
+    if file_format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="class_list_{module.code}_{academic_year}_sem{semester}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Student ID', 'Name', 'Email', 'Current Year', 'Score', 'Grade', 'Status'])
+        
+        for student in students:
+            result = result_map.get(student.student_id)
+            writer.writerow([
+                student.student_id,
+                student.user.get_full_name(),
+                student.email,
+                student.current_year,
+                result.score if result else '-',
+                result.grade if result else '-',
+                'Submitted' if result else 'Pending',
+            ])
+        
+        return response
+    
+    # Excel export (requires openpyxl)
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Class List'
+        
+        # Add header
+        headers = ['Student ID', 'Name', 'Email', 'Current Year', 'Score', 'Grade', 'Status']
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(bold=True, color='FFFFFF')
+        
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Add data
+        for row_num, student in enumerate(students, 2):
+            result = result_map.get(student.student_id)
+            row_data = [
+                student.student_id,
+                student.user.get_full_name(),
+                student.email,
+                student.current_year,
+                result.score if result else '-',
+                result.grade if result else '-',
+                'Submitted' if result else 'Pending',
+            ]
+            
+            for col_num, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.value = value
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+        
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 15
+        ws.column_dimensions['B'].width = 25
+        ws.column_dimensions['C'].width = 25
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 10
+        ws.column_dimensions['G'].width = 12
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="class_list_{module.code}_{academic_year}_sem{semester}.xlsx"'
+        wb.save(response)
+        
+        return response
+    
+    except ImportError:
+        # Fallback to CSV if openpyxl not installed
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="class_list_{module.code}_{academic_year}_sem{semester}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Student ID', 'Name', 'Email', 'Current Year', 'Score', 'Grade', 'Status'])
+        
+        for student in students:
+            result = result_map.get(student.student_id)
+            writer.writerow([
+                student.student_id,
+                student.user.get_full_name(),
+                student.email,
+                student.current_year,
+                result.score if result else '-',
+                result.grade if result else '-',
+                'Submitted' if result else 'Pending',
+            ])
+        
+        return response
 

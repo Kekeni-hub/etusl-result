@@ -28,12 +28,21 @@
                 <a href="{% url 'lecturer_edit_profile' %}" class="list-group-item list-group-item-action">
                     Edit Profile
                 </a>
+                <hr class="my-2">
+                <a href="{% url 'upload_results_csv' %}" class="list-group-item list-group-item-action active">
+                    Upload Results (CSV) <small class="text-muted">(preferred)</small>
+                </a>
                 <a href="{% url 'upload_results' %}" class="list-group-item list-group-item-action">
-                    Upload Results (Form)
+                    Upload Results (Form) <small class="text-muted">(edit-only / legacy)</small>
                 </a>
-                <a href="{% url 'upload_results_csv' %}" class="list-group-item list-group-item-action">
-                    Upload Results (CSV)
+                <hr class="my-2">
+                <a href="{% url 'student_performance_view' %}" class="list-group-item list-group-item-action">
+                    Student Performance View
                 </a>
+                <a href="{% url 'course_management' %}" class="list-group-item list-group-item-action">
+                    Course Management
+                </a>
+                <hr class="my-2">
                 <a href="{% url 'lecturer_logout' %}" class="list-group-item list-group-item-action text-danger">
                     Logout
                 </a>
