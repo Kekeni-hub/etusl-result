@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,22 +22,36 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-3tzq-vw2651m^3fsbu+6s@$1x14bdy$x2uq#r2ddo6f^4brh$r'
+# SECURITY: load secret key from environment for production (PythonAnywhere)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-3tzq-vw2651m^3fsbu+6s@$1x14bdy$x2uq#r2ddo6f^4brh$r')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG should be disabled in production. Use DJANGO_DEBUG env var to override.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*', '127.0.0.1', 'localhost', 'etusl']
+# ALLOWED_HOSTS: read from env var `DJANGO_ALLOWED_HOSTS` (comma-separated)
+raw_allowed = os.environ.get('DJANGO_ALLOWED_HOSTS')
+if raw_allowed:
+    ALLOWED_HOSTS = [h.strip() for h in raw_allowed.split(',') if h.strip()]
+else:
+    # sensible defaults for local development; set DJANGO_ALLOWED_HOSTS for production
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'etusl']
+
+# If running on PythonAnywhere, automatically allow the pythonanywhere hostname
+pyah_username = os.environ.get('PYTHONANYWHERE_USERNAME') or os.environ.get('USER')
+if pyah_username and not any(pyah_username + '.pythonanywhere.com' == h for h in ALLOWED_HOSTS):
+    ALLOWED_HOSTS.append(f"{pyah_username}.pythonanywhere.com")
 
 # ============================================================
 # SECURITY HARDENING CONFIGURATION
 # ============================================================
 
 # 1. HTTPS & SSL/TLS CONFIGURATION
-SECURE_SSL_REDIRECT = False  # Set to True in production
-SESSION_COOKIE_SECURE = False  # Set to True in production  
-CSRF_COOKIE_SECURE = False  # Set to True in production
+SECURE_SSL_REDIRECT = os.environ.get('DJANGO_ENABLE_SSL', 'false').lower() in ('1', 'true', 'yes')
+SESSION_COOKIE_SECURE = os.environ.get('DJANGO_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes')
+CSRF_COOKIE_SECURE = os.environ.get('DJANGO_CSRF_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes')
+
+# When Django is behind a proxy (PythonAnywhere), use this header to detect HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # 2. SECURITY HEADERS & PROTECTIONS
 SECURE_BROWSER_XSS_FILTER = True
@@ -170,6 +186,35 @@ DATABASES = {
     }
 }
 
+# Allow overriding DATABASES via DATABASE_URL environment variable (12-factor)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    try:
+        import dj_database_url
+        DATABASES['default'] = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    except Exception:
+        # Minimal parse for mysql://user:pass@host:port/dbname if dj_database_url not installed
+        parsed = urlparse(DATABASE_URL)
+        if parsed.scheme.startswith('mysql'):
+            DATABASES['default'] = {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': parsed.path.lstrip('/'),
+                'USER': parsed.username or '',
+                'PASSWORD': parsed.password or '',
+                'HOST': parsed.hostname or '127.0.0.1',
+                'PORT': str(parsed.port or 3306),
+                'OPTIONS': {'charset': 'utf8mb4'},
+            }
+
+# PythonAnywhere: prefer HOME-based static/media roots when deployed
+if os.environ.get('PYTHONANYWHERE_DOMAIN') or os.environ.get('PYTHONANYWHERE_USERNAME') or os.environ.get('HOME'):
+    HOME = os.environ.get('HOME', str(BASE_DIR))
+    STATIC_ROOT = os.path.join(HOME, 'staticfiles')
+    MEDIA_ROOT = os.path.join(HOME, 'media')
+else:
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -209,10 +254,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
+# STATIC_ROOT and MEDIA_ROOT are set earlier to prefer HOME when on PythonAnywhere
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
 LOGIN_URL = 'home'
