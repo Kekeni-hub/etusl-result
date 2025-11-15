@@ -26,7 +26,7 @@ Security notes:
 2. On client login, obtain the Firebase ID token (user.getIdToken()) and send it to the server:
 
 POST /firebase/verify-token/
-Body:
+
 ```json
 { "id_token": "<FIREBASE_ID_TOKEN>" }
 ```
@@ -68,4 +68,3 @@ fetch('/api/save-device-token/', { ... })
 
 - Add endpoint to store device tokens associated with users.
 - Optionally implement topic subscriptions for groups of users.
-
