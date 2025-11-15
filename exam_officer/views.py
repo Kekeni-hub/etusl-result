@@ -11,8 +11,9 @@ from django.db.models import Q
 
 from .models import ExamOfficer, Notification, SystemReport
 from student.models import Student, Faculty, Department, Result, Program
+from student.models_enhanced import ResultPublishingNotice, StudentResultMessage, GradeSubmissionDeadlineNotice, StaffGradeNotification
 from lecturer.models import Lecturer
-from admin_hierarchy.models import ResultApprovalWorkflow, ApprovalHistory
+from admin_hierarchy.models import ResultApprovalWorkflow, ApprovalHistory, HeadOfDepartment, DeanOfFaculty
 from .forms import OfficerStudentForm, OfficerProgramForm
 
 
@@ -564,5 +565,275 @@ def publish_result(request, workflow_id):
     }
     
     return render(request, 'admin/publish_result.html', context)
+
+
+# ==================== RESULT PUBLISHING NOTIFICATIONS ====================
+
+@require_profile('exam_officer_profile', login_url='admin_login')
+def create_result_publishing_notice(request):
+    """Create a result publishing notice to send to all students"""
+    try:
+        admin = request.user.exam_officer_profile
+    except:
+        return redirect('admin_login')
+    
+    if request.method == 'POST':
+        program_id = request.POST.get('program')
+        semester = request.POST.get('semester')
+        academic_year = request.POST.get('academic_year')
+        publishing_date = request.POST.get('publishing_date')
+        publishing_time = request.POST.get('publishing_time')
+        message = request.POST.get('message')
+        
+        try:
+            from student.models_enhanced import ResultPublishingNotice, StudentResultMessage
+            from datetime import datetime
+            
+            program = Program.objects.get(id=program_id)
+            
+            # Create publishing notice
+            notice = ResultPublishingNotice.objects.create(
+                program=program,
+                semester=semester,
+                academic_year=academic_year,
+                publishing_date=datetime.strptime(f"{publishing_date} {publishing_time}", "%Y-%m-%d %H:%M"),
+                publishing_time=publishing_time,
+                message=message,
+                created_by=request.user,
+                status='draft'
+            )
+            
+            messages.success(request, 'Publishing notice created. You can now send it to students.')
+            return redirect('send_result_publishing_notice', notice_id=notice.id)
+        
+        except Exception as e:
+            messages.error(request, f'Failed to create notice: {str(e)}')
+    
+    programs = Program.objects.all()
+    context = {
+        'programs': programs,
+    }
+    return render(request, 'admin/create_publishing_notice.html', context)
+
+
+@require_profile('exam_officer_profile', login_url='admin_login')
+def send_result_publishing_notice(request, notice_id):
+    """Send result publishing notice to all students"""
+    try:
+        admin = request.user.exam_officer_profile
+    except:
+        return redirect('admin_login')
+    
+    from student.models_enhanced import ResultPublishingNotice, StudentResultMessage
+    
+    notice = get_object_or_404(ResultPublishingNotice, id=notice_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'send':
+            # Get all students in the program
+            students = Student.objects.filter(
+                program=notice.program,
+                is_active=True
+            )
+            
+            publishing_datetime = notice.publishing_date
+            
+            # Create messages for each student
+            messages_created = 0
+            for student in students:
+                # Message shows only publishing date/time - NOT deadline info
+                message_body = notice.message.replace('{date}', publishing_datetime.strftime('%B %d, %Y'))
+                message_body = message_body.replace('{time}', publishing_datetime.strftime('%I:%M %p'))
+                
+                StudentResultMessage.objects.create(
+                    publishing_notice=notice,
+                    student=student,
+                    subject=notice.title,
+                    message_body=message_body,
+                    publishing_date=publishing_datetime,
+                    delivery_status='sent',
+                    sent_via_dashboard=True,
+                    sent_via_email=notice.send_email,
+                    sent_at=timezone.now()
+                )
+                messages_created += 1
+            
+            # Update notice
+            notice.status = 'sent'
+            notice.sent_date = timezone.now()
+            notice.total_recipients = students.count()
+            notice.successfully_sent = messages_created
+            notice.save()
+            
+            messages.success(request, f'Publishing notice sent to {messages_created} students.')
+            return redirect('admin_dashboard')
+        
+        elif action == 'schedule':
+            notice.status = 'scheduled'
+            notice.save()
+            messages.success(request, 'Notice scheduled.')
+    
+    context = {
+        'notice': notice,
+    }
+    return render(request, 'admin/send_publishing_notice.html', context)
+
+
+# ==================== GRADE SUBMISSION DEADLINE NOTIFICATIONS ====================
+
+@require_profile('exam_officer_profile', login_url='admin_login')
+def create_grade_deadline_notice(request):
+    """Create grade submission/verification/approval deadline notices"""
+    try:
+        admin = request.user.exam_officer_profile
+    except:
+        return redirect('admin_login')
+    
+    if request.method == 'POST':
+        program_id = request.POST.get('program')
+        semester = request.POST.get('semester')
+        academic_year = request.POST.get('academic_year')
+        submission_start = request.POST.get('submission_start_date')
+        submission_deadline = request.POST.get('submission_deadline')
+        verification_start = request.POST.get('verification_start_date')
+        verification_deadline = request.POST.get('verification_deadline')
+        approval_start = request.POST.get('approval_start_date')
+        approval_deadline = request.POST.get('approval_deadline')
+        
+        submission_message = request.POST.get('submission_message')
+        verification_message = request.POST.get('verification_message')
+        approval_message = request.POST.get('approval_message')
+        
+        try:
+            from student.models_enhanced import GradeSubmissionDeadlineNotice
+            from datetime import datetime
+            
+            program = Program.objects.get(id=program_id)
+            
+            notice = GradeSubmissionDeadlineNotice.objects.create(
+                program=program,
+                semester=semester,
+                academic_year=academic_year,
+                submission_start_date=datetime.fromisoformat(submission_start),
+                submission_deadline=datetime.fromisoformat(submission_deadline),
+                verification_start_date=datetime.fromisoformat(verification_start) if verification_start else None,
+                verification_deadline=datetime.fromisoformat(verification_deadline) if verification_deadline else None,
+                approval_deadline=datetime.fromisoformat(approval_deadline) if approval_deadline else None,
+                submission_message=submission_message,
+                verification_message=verification_message,
+                approval_message=approval_message,
+                created_by=request.user,
+                status='draft'
+            )
+            
+            messages.success(request, 'Grade deadline notice created.')
+            return redirect('send_grade_deadline_notice', notice_id=notice.id)
+        
+        except Exception as e:
+            messages.error(request, f'Failed to create notice: {str(e)}')
+    
+    programs = Program.objects.all()
+    context = {
+        'programs': programs,
+    }
+    return render(request, 'admin/create_grade_deadline_notice.html', context)
+
+
+@require_profile('exam_officer_profile', login_url='admin_login')
+def send_grade_deadline_notice(request, notice_id):
+    """Send grade deadline notifications to lecturers, HODs, deans"""
+    try:
+        admin = request.user.exam_officer_profile
+    except:
+        return redirect('admin_login')
+    
+    from student.models_enhanced import GradeSubmissionDeadlineNotice, StaffGradeNotification
+    from lecturer.models import Lecturer
+    from admin_hierarchy.models import HeadOfDepartment, DeanOfFaculty
+    
+    notice = get_object_or_404(GradeSubmissionDeadlineNotice, id=notice_id)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'send_to_lecturers':
+            # Get all lecturers for the program
+            lecturers = Lecturer.objects.filter(
+                department__program=notice.program,
+                is_active=True
+            ).distinct()
+            
+            for lecturer in lecturers:
+                StaffGradeNotification.objects.create(
+                    deadline_notice=notice,
+                    recipient=lecturer.user,
+                    staff_role='lecturer',
+                    notification_type='submission_start',
+                    subject=f'Grade Submission Deadline - {notice.program.name}',
+                    message_body=notice.submission_message,
+                    reference_deadline=notice.submission_deadline,
+                    delivery_status='sent',
+                    sent_via_email=notice.send_email,
+                    sent_via_dashboard=notice.send_dashboard,
+                    email_sent_at=timezone.now() if notice.send_email else None
+                )
+            
+            messages.success(request, f'Notifications sent to {lecturers.count()} lecturers.')
+        
+        elif action == 'send_to_hods':
+            # Get all HODs
+            hods = HeadOfDepartment.objects.filter(is_active=True)
+            
+            for hod in hods:
+                StaffGradeNotification.objects.create(
+                    deadline_notice=notice,
+                    recipient=hod.user,
+                    staff_role='hod',
+                    notification_type='verification_start' if notice.verification_start_date else 'submission_start',
+                    subject=f'Grade Verification & Approval - {notice.program.name}',
+                    message_body=notice.verification_message or notice.submission_message,
+                    reference_deadline=notice.verification_deadline or notice.submission_deadline,
+                    delivery_status='sent',
+                    sent_via_email=notice.send_email,
+                    sent_via_dashboard=notice.send_dashboard,
+                    email_sent_at=timezone.now() if notice.send_email else None
+                )
+            
+            messages.success(request, f'Notifications sent to {hods.count()} HODs.')
+        
+        elif action == 'send_to_deans':
+            # Get all Deans
+            deans = DeanOfFaculty.objects.filter(is_active=True)
+            
+            for dean in deans:
+                StaffGradeNotification.objects.create(
+                    deadline_notice=notice,
+                    recipient=dean.user,
+                    staff_role='dean',
+                    notification_type='approval_start' if notice.approval_deadline else 'submission_start',
+                    subject=f'Grade Approval Required - {notice.program.name}',
+                    message_body=notice.approval_message or notice.submission_message,
+                    reference_deadline=notice.approval_deadline or notice.submission_deadline,
+                    delivery_status='sent',
+                    sent_via_email=notice.send_email,
+                    sent_via_dashboard=notice.send_dashboard,
+                    email_sent_at=timezone.now() if notice.send_email else None
+                )
+            
+            messages.success(request, f'Notifications sent to {deans.count()} deans.')
+        
+        notice.status = 'active'
+        notice.activated_at = timezone.now()
+        notice.save()
+        
+        return redirect('admin_dashboard')
+    
+    context = {
+        'notice': notice,
+    }
+    return render(request, 'admin/send_grade_deadline_notice.html', context)
+
 
 

@@ -567,7 +567,7 @@ class EarlyWarningAlert(models.Model):
 
 class InterventionHistory(models.Model):
     """Track all interventions made for struggling students"""
-    student = models.ForeignKey(Student, on_cascade=models.CASCADE, related_name='interventions')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='interventions')
     
     intervention_date = models.DateTimeField(auto_now_add=True)
     intervention_type = models.CharField(
@@ -688,7 +688,7 @@ class Assignment(models.Model):
 class AssignmentSubmission(models.Model):
     """Student assignment submissions"""
     assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='submissions')
-    student = models.ForeignKey(Student, on_cascade=models.CASCADE, related_name='assignment_submissions')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='assignment_submissions')
     
     submission_file = models.FileField(upload_to='assignments/')
     submission_date = models.DateTimeField(auto_now_add=True)
@@ -839,7 +839,7 @@ class ParentGuardian(models.Model):
 
 class GuardianAlert(models.Model):
     """Alerts sent to parents/guardians"""
-    guardian = models.ForeignKey(ParentGuardian, on_cascade=models.CASCADE, related_name='alerts')
+    guardian = models.ForeignKey(ParentGuardian, on_delete=models.CASCADE, related_name='alerts')
     
     ALERT_TYPE_CHOICES = [
         ('grade_warning', 'Grade Warning'),
@@ -1031,7 +1031,7 @@ class APIRateLimit(models.Model):
 
 class ProgramCurriculum(models.Model):
     """Curriculum version for a program"""
-    program = models.ForeignKey(Program, on_cascade=models.CASCADE, related_name='curriculums')
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='curriculums')
     
     version = models.IntegerField(default=1)
     academic_year_introduced = models.CharField(max_length=20)
@@ -1055,8 +1055,8 @@ class ProgramCurriculum(models.Model):
 
 class CurriculumCourse(models.Model):
     """Courses within a curriculum"""
-    curriculum = models.ForeignKey(ProgramCurriculum, on_cascade=models.CASCADE, related_name='courses')
-    module = models.ForeignKey(Module, on_cascade=models.CASCADE)
+    curriculum = models.ForeignKey(ProgramCurriculum, on_delete=models.CASCADE, related_name='courses')
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
     
     COURSE_CATEGORY_CHOICES = [
         ('required', 'Required'),
@@ -1076,7 +1076,7 @@ class CurriculumCourse(models.Model):
 
 class CourseLearningOutcome(models.Model):
     """Learning outcomes for courses"""
-    module = models.ForeignKey(Module, on_cascade=models.CASCADE, related_name='learning_outcomes')
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='learning_outcomes')
     
     outcome_description = models.TextField()
     outcome_number = models.IntegerField()
@@ -1090,7 +1090,7 @@ class CourseLearningOutcome(models.Model):
 
 class DegreeRequirement(models.Model):
     """Overall degree requirements"""
-    program = models.OneToOneField(Program, on_cascade=models.CASCADE, related_name='degree_requirement')
+    program = models.OneToOneField(Program, on_delete=models.CASCADE, related_name='degree_requirement')
     
     minimum_gpa = models.DecimalField(max_digits=3, decimal_places=2, default=2.0)
     minimum_credits = models.IntegerField()
@@ -1115,8 +1115,8 @@ class DegreeRequirement(models.Model):
 
 class StudentProgression(models.Model):
     """Track student progression through their program"""
-    student = models.OneToOneField(Student, on_cascade=models.CASCADE, related_name='progression')
-    curriculum = models.ForeignKey(ProgramCurriculum, on_cascade=models.CASCADE)
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name='progression')
+    curriculum = models.ForeignKey(ProgramCurriculum, on_delete=models.CASCADE)
     
     enrollment_academic_year = models.CharField(max_length=20)
     
@@ -1138,8 +1138,8 @@ class StudentProgression(models.Model):
 
 class RetakeCourse(models.Model):
     """Track students retaking courses"""
-    student = models.ForeignKey(Student, on_cascade=models.CASCADE, related_name='retaken_courses')
-    module = models.ForeignKey(Module, on_cascade=models.CASCADE)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='retaken_courses')
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
     
     original_academic_year = models.CharField(max_length=20)
     original_semester = models.CharField(max_length=10)
@@ -1165,7 +1165,7 @@ class RetakeCourse(models.Model):
 
 class GraduationEligibility(models.Model):
     """Track graduation eligibility for students"""
-    student = models.OneToOneField(Student, on_cascade=models.CASCADE, related_name='graduation_eligibility')
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name='graduation_eligibility')
     
     is_eligible = models.BooleanField(default=False)
     
@@ -1189,7 +1189,7 @@ class GraduationEligibility(models.Model):
 class CohortAnalysis(models.Model):
     """Analyze cohort (group) of students"""
     cohort_name = models.CharField(max_length=100)
-    program = models.ForeignKey(Program, on_cascade=models.CASCADE, related_name='cohort_analyses')
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='cohort_analyses')
     
     enrollment_academic_year = models.CharField(max_length=20)
     cohort_size = models.IntegerField(default=0)
@@ -1211,3 +1211,626 @@ class CohortAnalysis(models.Model):
     
     def __str__(self):
         return self.cohort_name
+
+
+# ==================== 18. RESULT PUBLISHING NOTIFICATIONS ====================
+
+class ResultPublishingNotice(models.Model):
+    """Notifications to students about result publishing dates"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('scheduled', 'Scheduled'),
+        ('sent', 'Sent'),
+        ('completed', 'Completed'),
+    ]
+    
+    # Scope
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='publishing_notices')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Publishing details
+    publishing_date = models.DateTimeField(help_text="Date when results will be published")
+    publishing_time = models.TimeField(help_text="Time when results will be published")
+    
+    # Message
+    title = models.CharField(max_length=200, default="Your Results will be Published")
+    message = models.TextField(help_text="Message to show to students (use {date} and {time} as placeholders)")
+    
+    # For students only - no deadline shown
+    show_to_students = models.BooleanField(default=True)
+    
+    # Notification settings
+    send_to_students = models.BooleanField(default=True, help_text="Send notifications to all students")
+    send_dashboard = models.BooleanField(default=True, help_text="Show on dashboard")
+    send_email = models.BooleanField(default=True, help_text="Send email notifications")
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    sent_date = models.DateTimeField(blank=True, null=True)
+    
+    # Statistics
+    total_recipients = models.IntegerField(default=0)
+    successfully_sent = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-publishing_date']
+        unique_together = ('program', 'semester', 'academic_year')
+    
+    def __str__(self):
+        return f"Results Publishing - {self.program.name} ({self.academic_year})"
+
+
+class StudentResultMessage(models.Model):
+    """Individual messages sent to students about result publishing"""
+    
+    DELIVERY_STATUS = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    ]
+    
+    # References
+    publishing_notice = models.ForeignKey(ResultPublishingNotice, on_delete=models.CASCADE, related_name='student_messages')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='result_messages')
+    
+    # Message content
+    subject = models.CharField(max_length=200)
+    message_body = models.TextField()
+    
+    # Publishing info shown to student
+    publishing_date = models.DateTimeField()
+    
+    # Delivery tracking
+    delivery_status = models.CharField(max_length=20, choices=DELIVERY_STATUS, default='pending')
+    sent_at = models.DateTimeField(blank=True, null=True)
+    
+    # Channels
+    sent_via_email = models.BooleanField(default=False)
+    sent_via_dashboard = models.BooleanField(default=False)
+    
+    # Read tracking
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Student Result Message"
+        verbose_name_plural = "Student Result Messages"
+    
+    def __str__(self):
+        return f"Result Notice to {self.student.user.get_full_name()} - {self.publishing_date.date()}"
+
+
+# ==================== 19. GRADE SUBMISSION DEADLINE NOTIFICATIONS ====================
+
+class GradeSubmissionDeadlineNotice(models.Model):
+    """Notifications to lecturers, HODs, Deans about grade submission deadlines"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('closed', 'Closed'),
+    ]
+    
+    RECIPIENT_ROLES = [
+        ('lecturers', 'All Lecturers'),
+        ('hods', 'All HODs'),
+        ('deans', 'All Deans'),
+        ('exam_officers', 'Exam Officers'),
+        ('all', 'All Staff'),
+    ]
+    
+    # Scope
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='grade_deadline_notices')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Timeline
+    submission_start_date = models.DateTimeField(help_text="When grade submission starts")
+    submission_deadline = models.DateTimeField(help_text="Final deadline for grade submission")
+    verification_start_date = models.DateTimeField(blank=True, null=True)
+    verification_deadline = models.DateTimeField(blank=True, null=True)
+    approval_deadline = models.DateTimeField(blank=True, null=True)
+    
+    # Recipients
+    notify_lecturers = models.BooleanField(default=True)
+    notify_hods = models.BooleanField(default=True)
+    notify_deans = models.BooleanField(default=True)
+    notify_exam_officers = models.BooleanField(default=True)
+    
+    # Message templates
+    submission_message = models.TextField(help_text="Message about submission deadline")
+    verification_message = models.TextField(blank=True, help_text="Message about verification phase")
+    approval_message = models.TextField(blank=True, help_text="Message about approval phase")
+    completion_message = models.TextField(blank=True, help_text="Message when deadline closes")
+    
+    # Settings
+    send_email = models.BooleanField(default=True)
+    send_dashboard = models.BooleanField(default=True)
+    send_reminders = models.BooleanField(default=True, help_text="Send reminders before deadline")
+    reminder_days_before = models.IntegerField(default=3, help_text="Send reminder X days before deadline")
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    activated_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Statistics
+    total_notified = models.IntegerField(default=0)
+    successfully_sent = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-submission_deadline']
+        unique_together = ('program', 'semester', 'academic_year')
+    
+    def __str__(self):
+        return f"Grade Deadline - {self.program.name} ({self.academic_year})"
+    
+    @property
+    def is_submission_open(self):
+        from django.utils import timezone
+        now = timezone.now()
+        return self.submission_start_date <= now <= self.submission_deadline
+    
+    @property
+    def days_until_submission_deadline(self):
+        from django.utils import timezone
+        delta = self.submission_deadline - timezone.now()
+        return delta.days if delta.days >= 0 else 0
+
+
+class StaffGradeNotification(models.Model):
+    """Individual notifications sent to staff (lecturers, HODs, deans) about grade deadlines"""
+    
+    NOTIFICATION_TYPE = [
+        ('submission_start', 'Submission Started'),
+        ('submission_reminder', 'Submission Reminder'),
+        ('submission_deadline', 'Submission Deadline'),
+        ('verification_start', 'Verification Started'),
+        ('verification_reminder', 'Verification Reminder'),
+        ('verification_deadline', 'Verification Deadline'),
+        ('approval_start', 'Approval Started'),
+        ('approval_reminder', 'Approval Reminder'),
+        ('approval_deadline', 'Approval Deadline'),
+        ('completed', 'Process Completed'),
+    ]
+    
+    DELIVERY_STATUS = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+    ]
+    
+    STAFF_ROLE = [
+        ('lecturer', 'Lecturer'),
+        ('hod', 'Head of Department'),
+        ('dean', 'Dean'),
+        ('exam_officer', 'Exam Officer'),
+    ]
+    
+    # References
+    deadline_notice = models.ForeignKey(GradeSubmissionDeadlineNotice, on_delete=models.CASCADE, related_name='staff_notifications')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='grade_deadline_notifications')
+    staff_role = models.CharField(max_length=20, choices=STAFF_ROLE)
+    
+    # Notification details
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE)
+    subject = models.CharField(max_length=200)
+    message_body = models.TextField()
+    
+    # Timeline reference
+    reference_deadline = models.DateTimeField()
+    
+    # Delivery tracking
+    delivery_status = models.CharField(max_length=20, choices=DELIVERY_STATUS, default='pending')
+    
+    # Channels
+    sent_via_email = models.BooleanField(default=False)
+    sent_via_dashboard = models.BooleanField(default=False)
+    email_sent_at = models.DateTimeField(blank=True, null=True)
+    
+    # Read tracking (for dashboard)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(blank=True, null=True)
+    
+    # Action tracking
+    action_taken = models.CharField(max_length=100, blank=True, help_text="What action user took (submitted/verified/approved)")
+    action_taken_at = models.DateTimeField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', '-created_at']),
+            models.Index(fields=['staff_role', 'notification_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_staff_role_display()} - {self.get_notification_type_display()}"
+
+
+class GradeProcessStatusUpdate(models.Model):
+    """Track the overall status of grade submission, verification, and approval process"""
+    
+    PHASE_CHOICES = [
+        ('submission', 'Grade Submission'),
+        ('verification', 'Verification by HOD'),
+        ('approval', 'Approval by Dean/Exam Officer'),
+        ('completed', 'Completed'),
+        ('closed', 'Closed'),
+    ]
+    
+    # Scope
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='grade_process_updates')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Current phase
+    current_phase = models.CharField(max_length=20, choices=PHASE_CHOICES)
+    phase_started_at = models.DateTimeField()
+    phase_ends_at = models.DateTimeField()
+    
+    # Progress metrics
+    total_modules = models.IntegerField(default=0)
+    modules_submitted = models.IntegerField(default=0)
+    modules_verified = models.IntegerField(default=0)
+    modules_approved = models.IntegerField(default=0)
+    modules_pending = models.IntegerField(default=0)
+    modules_rejected = models.IntegerField(default=0)
+    
+    # Status message
+    status_message = models.TextField(blank=True, help_text="Current status message to display")
+    
+    # Last update
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-phase_started_at']
+        unique_together = ('program', 'semester', 'academic_year')
+        verbose_name = "Grade Process Status Update"
+        verbose_name_plural = "Grade Process Status Updates"
+    
+    def __str__(self):
+        return f"{self.program.name} - {self.get_current_phase_display()}"
+    
+    @property
+    def submission_percentage(self):
+        if self.total_modules == 0:
+            return 0
+        return int((self.modules_submitted / self.total_modules) * 100)
+    
+    @property
+    def verification_percentage(self):
+        if self.total_modules == 0:
+            return 0
+        return int((self.modules_verified / self.total_modules) * 100)
+    
+    @property
+    def approval_percentage(self):
+        if self.total_modules == 0:
+            return 0
+        return int((self.modules_approved / self.total_modules) * 100)
+
+
+# ==================== 16. LECTURER RESULT REPORTS ====================
+
+class LecturerResultReport(models.Model):
+    """Lecturer can write reports about unsatisfactory student results"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('reviewed', 'Reviewed by HOD'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    ISSUE_SEVERITY = [
+        ('low', 'Low - Minor concerns'),
+        ('medium', 'Medium - Moderate issues'),
+        ('high', 'High - Serious performance issues'),
+    ]
+    
+    # Identifying information
+    lecturer = models.ForeignKey('lecturer.Lecturer', on_delete=models.CASCADE, related_name='result_reports')
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='lecturer_reports')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Report details
+    report_title = models.CharField(max_length=200)
+    report_content = models.TextField(help_text="Detailed report about unsatisfactory results")
+    
+    # Severity level
+    severity_level = models.CharField(max_length=20, choices=ISSUE_SEVERITY, default='medium')
+    
+    # Performance metrics
+    students_with_issues = models.IntegerField(default=0, help_text="Number of students with unsatisfactory results")
+    average_score = models.DecimalField(max_digits=5, decimal_places=2, help_text="Class average score")
+    pass_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage of passing students")
+    
+    # Recommendations
+    recommended_actions = models.TextField(blank=True, help_text="Suggested interventions or actions")
+    
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_lecturer_reports')
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Reviewer comments
+    reviewer_comments = models.TextField(blank=True)
+    
+    # Attached student list (JSON)
+    affected_students = models.JSONField(default=list, blank=True, help_text="List of student IDs with issues")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Lecturer Result Report"
+        verbose_name_plural = "Lecturer Result Reports"
+    
+    def __str__(self):
+        return f"{self.report_title} - {self.module.module_code} ({self.academic_year})"
+
+
+class FacultyResultOverview(models.Model):
+    """Dean's overview report of faculty results"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('archived', 'Archived'),
+    ]
+    
+    # Report scope
+    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, related_name='result_overviews')
+    dean = models.ForeignKey('admin_hierarchy.DeanOfFaculty', on_delete=models.CASCADE, related_name='result_overviews')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Overall statistics
+    total_students = models.IntegerField(default=0)
+    total_modules = models.IntegerField(default=0)
+    total_results = models.IntegerField(default=0)
+    
+    # Performance metrics
+    average_score = models.DecimalField(max_digits=5, decimal_places=2)
+    overall_gpa = models.DecimalField(max_digits=3, decimal_places=2)
+    overall_pass_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage")
+    
+    # Grade distribution
+    grade_a_count = models.IntegerField(default=0)
+    grade_b_count = models.IntegerField(default=0)
+    grade_c_count = models.IntegerField(default=0)
+    grade_d_count = models.IntegerField(default=0)
+    grade_f_count = models.IntegerField(default=0)
+    
+    # Department breakdowns
+    department_stats = models.JSONField(default=dict, blank=True, help_text="Department-wise performance data")
+    
+    # Analysis and insights
+    key_findings = models.TextField(blank=True, help_text="Summary of key findings")
+    improvement_areas = models.TextField(blank=True, help_text="Areas needing improvement")
+    best_performing_departments = models.TextField(blank=True)
+    worst_performing_departments = models.TextField(blank=True)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('faculty', 'semester', 'academic_year')
+        verbose_name = "Faculty Result Overview"
+        verbose_name_plural = "Faculty Result Overviews"
+    
+    def __str__(self):
+        return f"{self.faculty.name} Overview - {self.academic_year}"
+
+
+class DepartmentResultOverview(models.Model):
+    """HOD's overview report of department results"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('archived', 'Archived'),
+    ]
+    
+    # Report scope
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='result_overviews')
+    hod = models.ForeignKey('admin_hierarchy.HeadOfDepartment', on_delete=models.CASCADE, related_name='result_overviews')
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Overall statistics
+    total_students = models.IntegerField(default=0)
+    total_modules = models.IntegerField(default=0)
+    total_results = models.IntegerField(default=0)
+    
+    # Performance metrics
+    average_score = models.DecimalField(max_digits=5, decimal_places=2)
+    overall_gpa = models.DecimalField(max_digits=3, decimal_places=2)
+    overall_pass_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    
+    # Grade distribution
+    grade_a_count = models.IntegerField(default=0)
+    grade_b_count = models.IntegerField(default=0)
+    grade_c_count = models.IntegerField(default=0)
+    grade_d_count = models.IntegerField(default=0)
+    grade_f_count = models.IntegerField(default=0)
+    
+    # Module breakdowns
+    module_stats = models.JSONField(default=dict, blank=True)
+    
+    # Analysis
+    key_findings = models.TextField(blank=True)
+    improvement_areas = models.TextField(blank=True)
+    best_performing_modules = models.TextField(blank=True)
+    worst_performing_modules = models.TextField(blank=True)
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('department', 'semester', 'academic_year')
+        verbose_name = "Department Result Overview"
+        verbose_name_plural = "Department Result Overviews"
+    
+    def __str__(self):
+        return f"{self.department.name} Overview - {self.academic_year}"
+
+
+# ==================== 17. RESULT SUBMISSION DEADLINES & NOTIFICATIONS ====================
+
+class ResultSubmissionDeadline(models.Model):
+    """Manage result submission deadlines"""
+    
+    TYPE_CHOICES = [
+        ('exam', 'Exam Results'),
+        ('test', 'Test Results'),
+        ('assignment', 'Assignment Results'),
+        ('attendance', 'Attendance'),
+        ('presentation', 'Presentation'),
+    ]
+    
+    # Deadline scope
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='result_deadlines')
+    result_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    semester = models.CharField(max_length=20)
+    academic_year = models.CharField(max_length=20)
+    
+    # Dates
+    deadline_date = models.DateTimeField(help_text="Last date for result submission")
+    final_extension_date = models.DateTimeField(blank=True, null=True, help_text="Extended deadline (optional)")
+    notification_date = models.DateTimeField(blank=True, null=True, help_text="When to send deadline reminder")
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Notes
+    notes = models.TextField(blank=True, help_text="Deadline notes/instructions")
+    
+    class Meta:
+        ordering = ['-deadline_date']
+        unique_together = ('program', 'result_type', 'semester', 'academic_year')
+    
+    def __str__(self):
+        return f"{self.get_result_type_display()} Deadline - {self.deadline_date.date()}"
+    
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+        return timezone.now() > self.deadline_date
+    
+    @property
+    def days_remaining(self):
+        from django.utils import timezone
+        delta = self.deadline_date - timezone.now()
+        return delta.days if delta.days >= 0 else 0
+
+
+class SubmissionStatusNotification(models.Model):
+    """Track notifications about submission status"""
+    
+    NOTIFICATION_TYPE = [
+        ('deadline_reminder', 'Deadline Reminder'),
+        ('submission_open', 'Submission Window Open'),
+        ('deadline_approaching', 'Deadline Approaching'),
+        ('deadline_passed', 'Deadline Passed'),
+        ('submission_closed', 'Submission Closed'),
+    ]
+    
+    RECIPIENT_TYPE = [
+        ('all_lecturers', 'All Lecturers'),
+        ('lecturers_no_submission', 'Lecturers with No Submissions'),
+        ('all_students', 'All Students'),
+        ('all_deans', 'All Deans'),
+        ('all_hods', 'All HODs'),
+        ('all_exam_officers', 'All Exam Officers'),
+    ]
+    
+    # Notification details
+    deadline = models.ForeignKey(ResultSubmissionDeadline, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE)
+    recipient_group = models.CharField(max_length=30, choices=RECIPIENT_TYPE)
+    
+    # Message
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    
+    # Sending
+    scheduled_send_time = models.DateTimeField()
+    sent_at = models.DateTimeField(blank=True, null=True)
+    is_sent = models.BooleanField(default=False)
+    
+    # Recipients count
+    recipients_count = models.IntegerField(default=0)
+    successfully_sent = models.IntegerField(default=0)
+    
+    # Track recipients (JSON list of user IDs)
+    recipient_user_ids = models.JSONField(default=list, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.get_notification_type_display()} - {self.subject}"
+
+
+class NotificationLog(models.Model):
+    """Log individual notification sends"""
+    
+    DELIVERY_STATUS = [
+        ('pending', 'Pending'),
+        ('sent', 'Sent'),
+        ('failed', 'Failed'),
+        ('bounced', 'Bounced'),
+    ]
+    
+    # Reference
+    batch_notification = models.ForeignKey(SubmissionStatusNotification, on_delete=models.CASCADE, related_name='individual_logs')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='submission_notification_logs')
+    
+    # Content
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    
+    # Delivery
+    delivery_status = models.CharField(max_length=20, choices=DELIVERY_STATUS, default='pending')
+    delivery_method = models.CharField(max_length=20, choices=[('email', 'Email'), ('sms', 'SMS'), ('in_app', 'In-App')])
+    sent_at = models.DateTimeField(blank=True, null=True)
+    
+    # Error tracking
+    error_message = models.TextField(blank=True)
+    retry_count = models.IntegerField(default=0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.recipient.email} - {self.delivery_status}"

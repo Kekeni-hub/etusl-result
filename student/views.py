@@ -117,10 +117,17 @@ def student_dashboard(request):
             results_by_year[year] = []
         results_by_year[year].append(result)
     
+    # Get result publishing messages for this student (only publishing date/time shown)
+    from .models_enhanced import StudentResultMessage
+    publishing_messages = StudentResultMessage.objects.filter(
+        student=student
+    ).order_by('-created_at')[:5]  # Show latest 5 messages
+    
     context = {
         'student': student,
         'results_by_year': results_by_year,
         'total_results': results.count(),
+        'publishing_messages': publishing_messages,  # Messages about when results will be published
     }
     
     return render(request, 'student/student_dashboard.html', context)

@@ -8,15 +8,16 @@ from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils import timezone
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Avg, Count
 from django.http import HttpResponse, JsonResponse
 import csv, io, logging
 from student.models import Faculty, Department, Program, StudentSemesterFolder
+from student.models_enhanced import FacultyResultOverview, DepartmentResultOverview, LecturerResultReport
 from django.urls import reverse
 
 from .models import HeadOfDepartment, DeanOfFaculty, ResultApprovalWorkflow, ApprovalHistory
 from student.models import Student, Result, Department, Faculty, Program
-from exam_officer.models import ExamOfficer
+from exam_officer.models import ExamOfficer, Notification
 from .forms import DeanStudentForm
 from .forms import DeanProgramForm
 
@@ -1092,4 +1093,461 @@ def archive_program_results(request):
 
     messages.success(request, f'Archiving complete. Created {created} new semester folders and attached results.')
     return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
+# ==================== DEPARTMENT RESULT OVERVIEWS (HOD) ====================
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_result_overviews(request):
+    """HOD view department result overviews"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    overviews = DepartmentResultOverview.objects.filter(
+        hod=hod
+    ).order_by('-created_at')
+    
+    # Filter by semester/year
+    semester = request.GET.get('semester', '')
+    academic_year = request.GET.get('academic_year', '')
+    
+    if semester:
+        overviews = overviews.filter(semester=semester)
+    if academic_year:
+        overviews = overviews.filter(academic_year=academic_year)
+    
+    paginator = Paginator(overviews, 10)
+    page_number = request.GET.get('page')
+    overviews_page = paginator.get_page(page_number)
+    
+    context = {
+        'overviews_page': overviews_page,
+        'hod': hod,
+    }
+    return render(request, 'admin_hierarchy/hod_result_overviews.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_create_overview(request):
+    """HOD create department result overview"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    if request.method == 'POST':
+        semester = request.POST.get('semester')
+        academic_year = request.POST.get('academic_year')
+        key_findings = request.POST.get('key_findings')
+        improvement_areas = request.POST.get('improvement_areas')
+        best_performing = request.POST.get('best_performing_modules')
+        worst_performing = request.POST.get('worst_performing_modules')
+        
+        try:
+            # Get results data for calculation
+            results = Result.objects.filter(
+                department=hod.department,
+                academic_year=academic_year,
+                semester=semester,
+                is_published=True
+            )
+            
+            # Calculate statistics
+            total_results = results.count()
+            total_students = results.values('student').distinct().count()
+            total_modules = results.values('module').distinct().count()
+            
+            avg_score = results.aggregate(Avg('score'))['score__avg'] or 0
+            
+            # Grade distribution
+            grade_counts = {
+                'A': results.filter(grade='A').count(),
+                'B': results.filter(grade='B').count(),
+                'C': results.filter(grade='C').count(),
+                'D': results.filter(grade='D').count(),
+                'F': results.filter(grade='F').count(),
+            }
+            
+            # Calculate pass rate
+            passed = results.exclude(grade='F').count()
+            pass_rate = (passed / total_results * 100) if total_results > 0 else 0
+            
+            # Calculate GPA (assuming A=4.0, B=3.0, C=2.0, D=1.0, F=0.0)
+            grade_points = {'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0}
+            total_points = sum(grade_points.get(r.grade, 0) for r in results)
+            overall_gpa = (total_points / total_results) if total_results > 0 else 0.0
+            
+            # Get or create overview
+            overview, created = DepartmentResultOverview.objects.update_or_create(
+                department=hod.department,
+                hod=hod,
+                semester=semester,
+                academic_year=academic_year,
+                defaults={
+                    'total_students': total_students,
+                    'total_modules': total_modules,
+                    'total_results': total_results,
+                    'average_score': avg_score,
+                    'overall_gpa': overall_gpa,
+                    'overall_pass_rate': pass_rate,
+                    'grade_a_count': grade_counts['A'],
+                    'grade_b_count': grade_counts['B'],
+                    'grade_c_count': grade_counts['C'],
+                    'grade_d_count': grade_counts['D'],
+                    'grade_f_count': grade_counts['F'],
+                    'key_findings': key_findings,
+                    'improvement_areas': improvement_areas,
+                    'best_performing_modules': best_performing,
+                    'worst_performing_modules': worst_performing,
+                    'status': 'draft',
+                }
+            )
+            
+            messages.success(request, 'Department overview created successfully.')
+            return redirect('hod_view_overview', overview_id=overview.id)
+        
+        except Exception as e:
+            messages.error(request, f'Failed to create overview: {str(e)}')
+    
+    context = {
+        'hod': hod,
+    }
+    return render(request, 'admin_hierarchy/hod_create_overview.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_view_overview(request, overview_id):
+    """HOD view department overview"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    overview = get_object_or_404(DepartmentResultOverview, id=overview_id)
+    
+    if overview.hod != hod and not request.user.is_staff:
+        messages.error(request, 'You do not have permission to view this overview.')
+        return redirect('hod_result_overviews')
+    
+    # Get related lecturer reports
+    lecturer_reports = LecturerResultReport.objects.filter(
+        module__lecturer__department=hod.department,
+        academic_year=overview.academic_year,
+        semester=overview.semester,
+        status__in=['submitted', 'reviewed', 'approved']
+    )
+    
+    context = {
+        'overview': overview,
+        'lecturer_reports': lecturer_reports,
+    }
+    return render(request, 'admin_hierarchy/hod_view_overview.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+@require_http_methods(["POST"])
+def hod_publish_overview(request, overview_id):
+    """HOD publish department overview"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    overview = get_object_or_404(DepartmentResultOverview, id=overview_id, hod=hod)
+    
+    overview.status = 'published'
+    overview.published_at = timezone.now()
+    overview.save()
+    
+    # Notify Dean
+    dean = overview.department.faculty.dean_set.first()
+    if dean and dean.user:
+        Notification.objects.create(
+            recipient=dean.user,
+            notification_type='report',
+            title='Department Result Overview Available',
+            message=f'HOD {hod.user.get_full_name()} published result overview for {overview.department.name}',
+            created_by=request.user,
+        )
+    
+    messages.success(request, 'Overview published and Dean notified.')
+    return redirect('hod_view_overview', overview_id=overview_id)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_lecturer_reports(request):
+    """HOD view lecturer result reports from their department"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    # Get all reports from lecturers in this department
+    reports = LecturerResultReport.objects.filter(
+        lecturer__department=hod.department
+    ).order_by('-created_at')
+    
+    # Filter by status
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        reports = reports.filter(status=status_filter)
+    
+    paginator = Paginator(reports, 10)
+    page_number = request.GET.get('page')
+    reports_page = paginator.get_page(page_number)
+    
+    context = {
+        'reports_page': reports_page,
+        'status_choices': [('draft', 'Draft'), ('submitted', 'Submitted'), ('reviewed', 'Reviewed'), ('approved', 'Approved'), ('rejected', 'Rejected')],
+    }
+    return render(request, 'admin_hierarchy/hod_lecturer_reports.html', context)
+
+
+@require_profile('hod_profile', login_url='hod_login')
+def hod_review_lecturer_report(request, report_id):
+    """HOD review a lecturer result report"""
+    try:
+        hod = request.user.hod_profile
+    except:
+        return redirect('hod_login')
+    
+    report = get_object_or_404(LecturerResultReport, id=report_id)
+    
+    # Check permission
+    if report.lecturer.department != hod.department:
+        messages.error(request, 'You do not have permission to review this report.')
+        return redirect('hod_lecturer_reports')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        comments = request.POST.get('comments', '')
+        
+        if action == 'approve':
+            report.status = 'approved'
+            report.reviewed_by = request.user
+            report.reviewed_at = timezone.now()
+            report.reviewer_comments = comments
+            report.save()
+            
+            # Notify lecturer
+            Notification.objects.create(
+                recipient=report.lecturer.user,
+                notification_type='report',
+                title='Your Report Has Been Approved',
+                message=f'Your result report for {report.module.module_code} has been approved by HOD {hod.user.get_full_name()}',
+                created_by=request.user,
+            )
+            
+            messages.success(request, 'Report approved.')
+        
+        elif action == 'reject':
+            report.status = 'rejected'
+            report.reviewed_by = request.user
+            report.reviewed_at = timezone.now()
+            report.reviewer_comments = comments
+            report.save()
+            
+            # Notify lecturer
+            Notification.objects.create(
+                recipient=report.lecturer.user,
+                notification_type='report',
+                title='Your Report Has Been Rejected',
+                message=f'Your result report for {report.module.module_code} has been rejected by HOD {hod.user.get_full_name()}. Comments: {comments}',
+                created_by=request.user,
+            )
+            
+            messages.success(request, 'Report rejected and lecturer notified.')
+        
+        return redirect('hod_lecturer_reports')
+    
+    context = {
+        'report': report,
+    }
+    return render(request, 'admin_hierarchy/hod_review_lecturer_report.html', context)
+
+
+# ==================== FACULTY RESULT OVERVIEWS (DEAN) ====================
+
+@require_profile('dean_profile', login_url='dean_login')
+def dean_result_overviews(request):
+    """Dean view faculty result overviews"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    overviews = FacultyResultOverview.objects.filter(
+        dean=dean
+    ).order_by('-created_at')
+    
+    # Filter by semester/year
+    semester = request.GET.get('semester', '')
+    academic_year = request.GET.get('academic_year', '')
+    
+    if semester:
+        overviews = overviews.filter(semester=semester)
+    if academic_year:
+        overviews = overviews.filter(academic_year=academic_year)
+    
+    paginator = Paginator(overviews, 10)
+    page_number = request.GET.get('page')
+    overviews_page = paginator.get_page(page_number)
+    
+    context = {
+        'overviews_page': overviews_page,
+        'dean': dean,
+    }
+    return render(request, 'admin_hierarchy/dean_result_overviews.html', context)
+
+
+@require_profile('dean_profile', login_url='dean_login')
+def dean_create_overview(request):
+    """Dean create faculty result overview"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    if request.method == 'POST':
+        semester = request.POST.get('semester')
+        academic_year = request.POST.get('academic_year')
+        key_findings = request.POST.get('key_findings')
+        improvement_areas = request.POST.get('improvement_areas')
+        best_performing = request.POST.get('best_performing_departments')
+        worst_performing = request.POST.get('worst_performing_departments')
+        
+        try:
+            # Get results data for calculation
+            results = Result.objects.filter(
+                faculty=dean.faculty,
+                academic_year=academic_year,
+                semester=semester,
+                is_published=True
+            )
+            
+            # Calculate statistics
+            total_results = results.count()
+            total_students = results.values('student').distinct().count()
+            total_modules = results.values('module').distinct().count()
+            
+            avg_score = results.aggregate(Avg('score'))['score__avg'] or 0
+            
+            # Grade distribution
+            grade_counts = {
+                'A': results.filter(grade='A').count(),
+                'B': results.filter(grade='B').count(),
+                'C': results.filter(grade='C').count(),
+                'D': results.filter(grade='D').count(),
+                'F': results.filter(grade='F').count(),
+            }
+            
+            # Calculate pass rate
+            passed = results.exclude(grade='F').count()
+            pass_rate = (passed / total_results * 100) if total_results > 0 else 0
+            
+            # Calculate GPA
+            grade_points = {'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0}
+            total_points = sum(grade_points.get(r.grade, 0) for r in results)
+            overall_gpa = (total_points / total_results) if total_results > 0 else 0.0
+            
+            # Get or create overview
+            overview, created = FacultyResultOverview.objects.update_or_create(
+                faculty=dean.faculty,
+                dean=dean,
+                semester=semester,
+                academic_year=academic_year,
+                defaults={
+                    'total_students': total_students,
+                    'total_modules': total_modules,
+                    'total_results': total_results,
+                    'average_score': avg_score,
+                    'overall_gpa': overall_gpa,
+                    'overall_pass_rate': pass_rate,
+                    'grade_a_count': grade_counts['A'],
+                    'grade_b_count': grade_counts['B'],
+                    'grade_c_count': grade_counts['C'],
+                    'grade_d_count': grade_counts['D'],
+                    'grade_f_count': grade_counts['F'],
+                    'key_findings': key_findings,
+                    'improvement_areas': improvement_areas,
+                    'best_performing_departments': best_performing,
+                    'worst_performing_departments': worst_performing,
+                    'status': 'draft',
+                }
+            )
+            
+            messages.success(request, 'Faculty overview created successfully.')
+            return redirect('dean_view_overview', overview_id=overview.id)
+        
+        except Exception as e:
+            messages.error(request, f'Failed to create overview: {str(e)}')
+    
+    context = {
+        'dean': dean,
+    }
+    return render(request, 'admin_hierarchy/dean_create_overview.html', context)
+
+
+@require_profile('dean_profile', login_url='dean_login')
+def dean_view_overview(request, overview_id):
+    """Dean view faculty overview"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    overview = get_object_or_404(FacultyResultOverview, id=overview_id)
+    
+    if overview.dean != dean and not request.user.is_staff:
+        messages.error(request, 'You do not have permission to view this overview.')
+        return redirect('dean_result_overviews')
+    
+    # Get related department overviews
+    dept_overviews = DepartmentResultOverview.objects.filter(
+        department__faculty=dean.faculty,
+        academic_year=overview.academic_year,
+        semester=overview.semester,
+        status='published'
+    )
+    
+    context = {
+        'overview': overview,
+        'department_overviews': dept_overviews,
+    }
+    return render(request, 'admin_hierarchy/dean_view_overview.html', context)
+
+
+@require_profile('dean_profile', login_url='dean_login')
+@require_http_methods(["POST"])
+def dean_publish_overview(request, overview_id):
+    """Dean publish faculty overview"""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    overview = get_object_or_404(FacultyResultOverview, id=overview_id, dean=dean)
+    
+    overview.status = 'published'
+    overview.published_at = timezone.now()
+    overview.save()
+    
+    # Notify Exam Officer and Admin
+    from exam_officer.models import ExamOfficer
+    exam_officers = ExamOfficer.objects.filter(is_active=True)
+    
+    for exam_officer in exam_officers:
+        if exam_officer.user:
+            Notification.objects.create(
+                recipient=exam_officer.user,
+                notification_type='report',
+                title='Faculty Result Overview Available',
+                message=f'Dean {dean.user.get_full_name()} published result overview for {overview.faculty.name}',
+                created_by=request.user,
+            )
+    
+    messages.success(request, 'Overview published and Admin notified.')
+    return redirect('dean_view_overview', overview_id=overview_id)
 

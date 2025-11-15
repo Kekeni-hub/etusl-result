@@ -8,12 +8,14 @@ from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.core import serializers
 from django.http import JsonResponse
+from django.utils import timezone
 from datetime import datetime
 import json
 
 from .models import Lecturer
 from .forms import LecturerProfileForm
 from student.models import Student, Result, Faculty, Department, Program, Module, Assessment
+from student.models_enhanced import LecturerResultReport, ResultSubmissionDeadline
 from django.db.models import Q
 from admin_hierarchy.models import ResultApprovalWorkflow, HeadOfDepartment
 from student.models import StudentSemesterFolder
@@ -724,4 +726,206 @@ def lecturer_submit_result(request, result_id):
 
     # For GET, redirect to list
     return redirect('lecturer_results_list')
+
+
+# ==================== LECTURER RESULT REPORTS ====================
+
+@login_required(login_url='lecturer_login')
+def lecturer_reports(request):
+    """View all lecturer result reports"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    reports = lecturer.result_reports.all()
+    
+    # Filter by status
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        reports = reports.filter(status=status_filter)
+    
+    # Pagination
+    paginator = Paginator(reports, 10)
+    page_number = request.GET.get('page')
+    reports_page = paginator.get_page(page_number)
+    
+    context = {
+        'reports_page': reports_page,
+        'status_choices': [('draft', 'Draft'), ('submitted', 'Submitted'), ('reviewed', 'Reviewed'), ('approved', 'Approved'), ('rejected', 'Rejected')],
+    }
+    return render(request, 'lecturer/lecturer_reports.html', context)
+
+
+@login_required(login_url='lecturer_login')
+@require_http_methods(["GET", "POST"])
+def create_result_report(request):
+    """Create a new result report about unsatisfactory results"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    if request.method == 'POST':
+        module_id = request.POST.get('module')
+        semester = request.POST.get('semester')
+        academic_year = request.POST.get('academic_year')
+        report_title = request.POST.get('report_title')
+        report_content = request.POST.get('report_content')
+        severity_level = request.POST.get('severity_level')
+        students_with_issues = request.POST.get('students_with_issues')
+        average_score = request.POST.get('average_score')
+        pass_rate = request.POST.get('pass_rate')
+        recommended_actions = request.POST.get('recommended_actions')
+        affected_students = request.POST.getlist('affected_students')
+        
+        try:
+            module = Module.objects.get(id=module_id)
+            
+            report = LecturerResultReport.objects.create(
+                lecturer=lecturer,
+                module=module,
+                semester=semester,
+                academic_year=academic_year,
+                report_title=report_title,
+                report_content=report_content,
+                severity_level=severity_level,
+                students_with_issues=int(students_with_issues) if students_with_issues else 0,
+                average_score=float(average_score) if average_score else 0,
+                pass_rate=float(pass_rate) if pass_rate else 0,
+                recommended_actions=recommended_actions,
+                affected_students=affected_students,
+                status='draft'
+            )
+            
+            messages.success(request, 'Report created successfully. You can edit it before submission.')
+            return redirect('view_result_report', report_id=report.id)
+        except Exception as e:
+            messages.error(request, f'Failed to create report: {str(e)}')
+    
+    modules = Module.objects.filter(lecturer__user=request.user)
+    
+    # Get students with their latest results for this lecturer
+    students = Student.objects.filter(
+        result__uploaded_by=lecturer
+    ).distinct()
+    
+    context = {
+        'modules': modules,
+        'students': students,
+    }
+    return render(request, 'lecturer/create_result_report.html', context)
+
+
+@login_required(login_url='lecturer_login')
+def view_result_report(request, report_id):
+    """View a result report"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    report = get_object_or_404(LecturerResultReport, id=report_id)
+    
+    # Check permission
+    if report.lecturer != lecturer and not request.user.is_staff:
+        messages.error(request, 'You do not have permission to view this report.')
+        return redirect('lecturer_reports')
+    
+    context = {
+        'report': report,
+        'can_edit': report.status == 'draft' and report.lecturer == lecturer,
+    }
+    return render(request, 'lecturer/view_result_report.html', context)
+
+
+@login_required(login_url='lecturer_login')
+@require_http_methods(["POST"])
+def edit_result_report(request, report_id):
+    """Edit a result report (only if draft)"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    report = get_object_or_404(LecturerResultReport, id=report_id, lecturer=lecturer)
+    
+    if report.status != 'draft':
+        messages.error(request, 'Cannot edit a report that has been submitted.')
+        return redirect('view_result_report', report_id=report_id)
+    
+    # Update fields
+    report.report_title = request.POST.get('report_title', report.report_title)
+    report.report_content = request.POST.get('report_content', report.report_content)
+    report.severity_level = request.POST.get('severity_level', report.severity_level)
+    report.students_with_issues = int(request.POST.get('students_with_issues', report.students_with_issues) or 0)
+    report.average_score = float(request.POST.get('average_score', report.average_score) or 0)
+    report.pass_rate = float(request.POST.get('pass_rate', report.pass_rate) or 0)
+    report.recommended_actions = request.POST.get('recommended_actions', report.recommended_actions)
+    report.save()
+    
+    messages.success(request, 'Report updated successfully.')
+    return redirect('view_result_report', report_id=report_id)
+
+
+@login_required(login_url='lecturer_login')
+@require_http_methods(["POST"])
+def submit_result_report(request, report_id):
+    """Submit a result report to HOD"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    report = get_object_or_404(LecturerResultReport, id=report_id, lecturer=lecturer)
+    
+    if report.status != 'draft':
+        messages.error(request, 'Report has already been submitted.')
+        return redirect('view_result_report', report_id=report_id)
+    
+    report.status = 'submitted'
+    report.submitted_at = timezone.now()
+    report.save()
+    
+    # Send notification to HOD
+    hod = HeadOfDepartment.objects.filter(
+        department=lecturer.department,
+        is_active=True
+    ).first()
+    
+    if hod and hod.user:
+        from exam_officer.models import Notification
+        Notification.objects.create(
+            recipient=hod.user,
+            notification_type='report',
+            title='New Result Report from Lecturer',
+            message=f'Lecturer {lecturer.user.get_full_name()} submitted a report on {report.module.module_code}: {report.report_title}',
+            created_by=request.user,
+        )
+    
+    messages.success(request, 'Report submitted to HOD for review.')
+    return redirect('view_result_report', report_id=report_id)
+
+
+# ==================== RESULT SUBMISSION DEADLINES ====================
+
+@login_required(login_url='lecturer_login')
+def submission_deadlines(request):
+    """View result submission deadlines"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    # Get deadlines for lecturer's program
+    deadlines = ResultSubmissionDeadline.objects.filter(
+        program__department=lecturer.department,
+        is_active=True
+    ).order_by('deadline_date')
+    
+    context = {
+        'deadlines': deadlines,
+    }
+    return render(request, 'lecturer/submission_deadlines.html', context)
+
 

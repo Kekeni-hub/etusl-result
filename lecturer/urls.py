@@ -16,5 +16,16 @@ urlpatterns = [
     path('result/<int:result_id>/edit/', views.lecturer_edit_result, name='lecturer_edit_result'),
     path('result/<int:result_id>/delete/', views.lecturer_delete_result, name='lecturer_delete_result'),
     path('result/<int:result_id>/submit/', views.lecturer_submit_result, name='lecturer_submit_result'),
+    
+    # Result Reports
+    path('reports/', views.lecturer_reports, name='lecturer_reports'),
+    path('reports/create/', views.create_result_report, name='create_result_report'),
+    path('reports/<int:report_id>/', views.view_result_report, name='view_result_report'),
+    path('reports/<int:report_id>/edit/', views.edit_result_report, name='edit_result_report'),
+    path('reports/<int:report_id>/submit/', views.submit_result_report, name='submit_result_report'),
+    
+    # Submission Deadlines
+    path('deadlines/', views.submission_deadlines, name='submission_deadlines'),
+    
     path('logout/', views.lecturer_logout, name='lecturer_logout'),
 ]
