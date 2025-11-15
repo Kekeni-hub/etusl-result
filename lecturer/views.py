@@ -234,12 +234,21 @@ def upload_results(request):
             created_count = 0
             errors = []
             try:
+                if not payload or len(payload) == 0:
+                    messages.error(request, 'No assessment data provided. Please add at least one module with scores.')
+                    return redirect('upload_results')
+                
                 for entry in payload:
                     student_id = entry.get('student_id')
                     module_code = entry.get('module_code', '').strip()
                     academic_year = entry.get('academic_year')
                     semester = entry.get('semester')
                     assessments = entry.get('assessments', {})
+
+                    # Validate that we have assessments with data
+                    if not assessments or len(assessments) == 0:
+                        errors.append(f'No assessment scores provided for module {module_code}')
+                        continue
 
                     # Accept either a module_code or a module_id; at least one must be present
                     if not module_code and not entry.get('module_id'):
@@ -293,48 +302,46 @@ def upload_results(request):
                         except Exception:
                             total = 100
 
-                        Assessment.objects.create(
-                            student=student,
-                            module=module,
-                            assessment_type=atype,
-                            score=score,
-                            total_score=total,
-                            uploaded_by=lecturer,
-                            academic_year=academic_year,
-                            semester=semester,
-                        )
-                        created_count += 1
-
-                    # After creating assessments for this student+module, recalculate module Result
-                    result = Result.objects.filter(student=student, subject=module.name, academic_year=academic_year, semester=semester).first()
-                    if result:
                         try:
-                            result.recalculate_from_assessments()
-                        except Exception:
-                            pass
-                    else:
-                        # If no result exists yet, create one
-                        try:
-                            result = Result.objects.create(
+                            Assessment.objects.create(
                                 student=student,
-                                subject=module.name,
-                                program=student.program,
-                                department=student.department,
-                                faculty=student.faculty,
-                                result_type='module',
+                                module=module,
+                                assessment_type=atype,
+                                score=score,
+                                total_score=total,
+                                uploaded_by=lecturer,
                                 academic_year=academic_year,
                                 semester=semester,
-                                score=0,
-                                total_score=100,
-                                grade='F',
-                                uploaded_by=lecturer,
                             )
-                            try:
-                                result.recalculate_from_assessments()
-                            except Exception:
-                                pass
+                            created_count += 1
                         except Exception as e:
-                            errors.append(f'Could not create result for {student.student_id} / {module_code}: {e}')
+                            errors.append(f'Assessment creation error for {student.student_id} / {atype}: {str(e)}')
+
+                    # After creating assessments for this student+module, recalculate module Result
+                    try:
+                        result, created = Result.objects.get_or_create(
+                            student=student,
+                            subject=module.name,
+                            result_type='exam',
+                            academic_year=academic_year,
+                            semester=semester,
+                            defaults={
+                                'program': student.program,
+                                'department': student.department,
+                                'faculty': student.faculty,
+                                'score': 0,
+                                'total_score': 100,
+                                'grade': 'F',
+                                'uploaded_by': lecturer,
+                            }
+                        )
+                        
+                        try:
+                            result.recalculate_from_assessments()
+                        except Exception as e:
+                            errors.append(f'Grade recalculation error for {student.student_id}: {str(e)}')
+                    except Exception as e:
+                        errors.append(f'Could not create/update result for {student.student_id} / {module_code}: {str(e)}')
 
                     # Ensure a workflow exists and is set to lecturer_submitted -> HOD
                     try:
@@ -350,6 +357,10 @@ def upload_results(request):
                     except Exception as e:
                         errors.append(f'Workflow error: {e}')
 
+                if created_count == 0 and len(errors) > 0:
+                    messages.error(request, f'Failed to upload results. Errors: ' + '; '.join(errors[:5]))
+                    return redirect('upload_results')
+                
                 if errors:
                     messages.warning(request, f'Uploaded {created_count} entries with {len(errors)} warnings:\n' + '\n'.join(errors[:5]))
                 else:

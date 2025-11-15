@@ -315,8 +315,27 @@ document.getElementById('uploadForm').addEventListener('submit', function(e){
     const semester = document.querySelector('select[name="semester"]').value;
     const program = document.querySelector('select[name="program"]').value;
 
+    if (!year) {
+        alert('Please enter an academic year.');
+        e.preventDefault();
+        return;
+    }
+
+    if (!semester) {
+        alert('Please select a semester.');
+        e.preventDefault();
+        return;
+    }
+
+    if (!program) {
+        alert('Please select a program.');
+        e.preventDefault();
+        return;
+    }
+
     const payload = [];
     const seenModules = new Set();
+    let hasValidScore = false;
 
     studentSelects.forEach(sel => {
         const studentId = sel.value;
@@ -338,24 +357,34 @@ document.getElementById('uploadForm').addEventListener('submit', function(e){
                 const val = si.value;
                 const totalEl = mrow.querySelector(`.assessment-total[data-type="${atype}"]`);
                 const totalVal = totalEl ? totalEl.value : '';
-                if (val !== '' && val !== null && parseFloat(val) > 0) {
+                if (val !== '' && val !== null && parseFloat(val) >= 0) {
                     assessments[atype] = { score: parseFloat(val) || 0, total: parseFloat(totalVal) || 100 };
+                    hasValidScore = true;
                 }
             });
 
-            payload.push({
-                student_id: parseInt(studentId),
-                module_code: moduleCode,
-                academic_year: year,
-                semester: semester,
-                program_id: program,
-                assessments: assessments
-            });
+            // Only add to payload if there are assessments with scores
+            if (Object.keys(assessments).length > 0) {
+                payload.push({
+                    student_id: parseInt(studentId),
+                    module_code: moduleCode,
+                    academic_year: year,
+                    semester: semester,
+                    program_id: program,
+                    assessments: assessments
+                });
+            }
         });
     });
 
+    if (!hasValidScore) {
+        alert('Please enter at least one assessment score before submitting.');
+        e.preventDefault();
+        return;
+    }
+
     if (payload.length === 0) {
-        alert('No valid student/module entries found.');
+        alert('No valid student/module entries with scores found. Please enter scores for at least one assessment.');
         e.preventDefault();
         return;
     }
