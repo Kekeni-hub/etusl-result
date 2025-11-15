@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Program Results{% endblock %}
+{% block content %}
+<div class="container my-5">
+  <a href="{% url 'lecturer_uploads_by_program' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back</a>
+  <h3>Results for {{ program.name }}</h3>
+  <p class="small text-muted">Uploaded by you</p>
+
+  {% if results %}
+    <div class="table-responsive mt-3">
+      <table class="table table-striped">
+        <thead>
+          <tr><th>Student</th><th>Subject</th><th>Score</th><th>Total</th><th>Grade</th><th>Academic Year</th><th>Semester</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr>
+              <td>{{ r.student.user.get_full_name }} — {{ r.student.student_id }}</td>
+              <td>{{ r.subject }}</td>
+              <td>{{ r.score }}</td>
+              <td>{{ r.total_score }}</td>
+              <td>{{ r.grade }}</td>
+              <td>{{ r.academic_year }}</td>
+              <td>{{ r.semester }}</td>
+              <td>{% if r.is_published %}<span class="badge bg-success">Published</span>{% else %}<span class="badge bg-warning">Pending</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">No results found for this program.</div>
+  {% endif %}
+</div>
+{% endblock %}

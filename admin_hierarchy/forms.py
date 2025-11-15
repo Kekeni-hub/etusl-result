@@ -26,6 +26,19 @@ class DeanStudentForm(forms.Form):
             self.fields['department'].queryset = Department.objects.all()
             self.fields['program'].queryset = Program.objects.all()
 
+        # Ensure consistent Bootstrap classes on widgets
+        for name, field in self.fields.items():
+            widget = field.widget
+            if isinstance(widget, (forms.Select, forms.NullBooleanSelect)) or getattr(field, 'choices', None):
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-select').strip()
+            elif isinstance(widget, (forms.Textarea,)):
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-control').strip()
+            else:
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-control').strip()
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         from django.contrib.auth.models import User

@@ -28,12 +28,70 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*', '127.0.0.1', 'localhost', 'etusl']
 
-# Security settings for development
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+# ============================================================
+# SECURITY HARDENING CONFIGURATION
+# ============================================================
+
+# 1. HTTPS & SSL/TLS CONFIGURATION
+SECURE_SSL_REDIRECT = False  # Set to True in production
+SESSION_COOKIE_SECURE = False  # Set to True in production  
+CSRF_COOKIE_SECURE = False  # Set to True in production
+
+# 2. SECURITY HEADERS & PROTECTIONS
 SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_SECURITY_POLICY = None
+X_FRAME_OPTIONS = 'DENY'  # Prevents clickjacking attacks
+SECURE_HSTS_SECONDS = 31536000  # One year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# 3. CONTENT SECURITY POLICY
+SECURE_CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+    'script-src': ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
+    'style-src': ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "fonts.googleapis.com"),
+    'font-src': ("'self'", "fonts.gstatic.com"),
+    'img-src': ("'self'", "data:", "https:"),
+    'connect-src': ("'self'",),
+    'frame-ancestors': ("'none'",),
+}
+
+# 4. CSRF & COOKIE PROTECTIONS
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000', 'http://etusl:8000']
+CSRF_COOKIE_HTTPONLY = True  # Prevents JavaScript access to CSRF token
+SESSION_COOKIE_HTTPONLY = True  # Prevents JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Strict'  # Prevents CSRF via cross-site requests
+CSRF_COOKIE_SAMESITE = 'Strict'
+
+# 5. SESSION SECURITY
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = 3600  # 1 hour session timeout
+SESSION_SAVE_EVERY_REQUEST = True
+
+# 6. PASSWORD SECURITY
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.Argon2PasswordHasher',  # Optional if argon2 installed
+]
+
+# 7. FILE UPLOAD SECURITY
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+FILE_UPLOAD_TEMP_DIR = None  # Use system temp dir
+
+# 8. ALLOWED FILE TYPES FOR UPLOADS
+ALLOWED_UPLOAD_EXTENSIONS = ['.pdf', '.csv', '.xlsx', '.xls', '.jpg', '.jpeg', '.png', '.gif']
+BLOCKED_UPLOAD_EXTENSIONS = ['.exe', '.bat', '.cmd', '.com', '.scr', '.vbs', '.js', '.php', '.asp', '.aspx', '.sh']
+
+# Firebase configuration
+# Path to Firebase service account JSON file (set as environment variable in production)
+FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS', '')
+
+# Toggle sending notifications from server (set to 'true' in env to enable)
+ENABLE_FIREBASE_NOTIFICATIONS = os.environ.get('ENABLE_FIREBASE_NOTIFICATIONS', 'false').lower() == 'true'
 
 
 # Application definition
@@ -49,6 +107,9 @@ INSTALLED_APPS = [
     'lecturer',
     'exam_officer',
     'admin_hierarchy',
+    # Django REST Framework for API
+    'rest_framework',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [
@@ -59,6 +120,15 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Custom security middleware
+    'Etu_student_result.security_middleware.SecurityHeadersMiddleware',
+    'Etu_student_result.security_middleware.SQLInjectionProtectionMiddleware',
+    'Etu_student_result.security_middleware.DirectoryTraversalProtectionMiddleware',
+    'Etu_student_result.security_middleware.CommandInjectionProtectionMiddleware',
+    'Etu_student_result.security_middleware.XSSProtectionMiddleware',
+    'Etu_student_result.security_middleware.SuspiciousUserAgentMiddleware',
+    'Etu_student_result.security_middleware.FileUploadSecurityMiddleware',
+    'Etu_student_result.security_middleware.RateLimitingMiddleware',
 ]
 
 ROOT_URLCONF = 'Etu_student_result.urls'
@@ -146,3 +216,18 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Login settings
 LOGIN_URL = 'home'
+# Email backend for development: print emails to console when DEBUG is True
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'no-reply@example.com'
+
+# Django REST Framework configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}

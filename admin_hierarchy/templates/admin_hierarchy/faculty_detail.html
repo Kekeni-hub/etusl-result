@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}{{ faculty.name }}{% endblock %}
+{% block content %}
+<div class="container my-5">
+    <h2>{{ faculty.name }}</h2>
+    <h4>Departments</h4>
+    <ul class="list-group mb-4">
+    {% for d in departments %}
+        <li class="list-group-item"><a href="{% url 'department_detail' d.id %}">{{ d.name }}</a></li>
+    {% empty %}
+        <li class="list-group-item">No departments found.</li>
+    {% endfor %}
+    </ul>
+
+    <h4>Programs</h4>
+    <ul class="list-group">
+    {% for p in programs %}
+        <li class="list-group-item">{{ p.name }}</li>
+    {% empty %}
+        <li class="list-group-item">No programs found.</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Exam Officer - Preview Results{% endblock %}
+
+{% block content %}
+<style>
+    /* Archive form card styling */
+    .archive-form {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+    }
+    .archive-form .form-control,
+    .archive-form .form-select {
+        height: 44px;
+        padding: .5rem .75rem;
+        font-size: 0.95rem;
+        border: 1px solid #ced4da;
+    }
+    .archive-form .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.95rem;
+    }
+    .archive-form .btn {
+        height: 44px;
+        font-weight: 500;
+    }
+    .archive-form-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #333;
+    }
+</style>
+<div class="container my-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Preview Results (Exam Officer)</h3>
+            <p class="small text-muted">Filter, export or archive published results.</p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <form method="get" class="row g-2">
+                <div class="col-md-3">
+                    <select name="faculty" class="form-select">
+                        <option value="">-- Faculty --</option>
+                        {% for f in faculties %}
+                            <option value="{{ f.id }}" {% if selected_faculty == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="department" class="form-select">
+                        <option value="">-- Department --</option>
+                        {% for d in departments %}
+                            <option value="{{ d.id }}" {% if selected_department == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="program" class="form-select">
+                        <option value="">-- Program --</option>
+                        {% for p in programs %}
+                            <option value="{{ p.id }}" {% if selected_program == p.id|stringformat:'s' %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <a href="{% url 'export_results_csv' %}?{% if selected_faculty %}faculty={{ selected_faculty }}&{% endif %}{% if selected_department %}department={{ selected_department }}&{% endif %}{% if selected_program %}program={{ selected_program }}&{% endif %}" class="btn btn-outline-success">Export CSV</a>
+        </div>
+        <div class="col-md-6">
+            <form method="post" action="{% url 'archive_program_results' %}" class="archive-form">
+                {% csrf_token %}
+                <div class="archive-form-title">Archive Results</div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Faculty</label>
+                        <select name="faculty_id" class="form-select">
+                            <option value="">-- Choose Faculty --</option>
+                            {% for fac in faculties %}
+                                <option value="{{ fac.id }}">{{ fac.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Department</label>
+                        <select name="department_id" class="form-select">
+                            <option value="">-- Choose Department --</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Program</label>
+                        <select name="program_id" class="form-select" required>
+                            <option value="">-- Choose Program --</option>
+                            {% for p in programs %}
+                                <option value="{{ p.id }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Academic Year</label>
+                        <input name="academic_year" class="form-control" placeholder="e.g., 2024/2025" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Semester</label>
+                        <select name="semester" class="form-select" required>
+                            <option value="">-- Choose Semester --</option>
+                            <option value="1">Semester 1</option>
+                            <option value="2">Semester 2</option>
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <button class="btn btn-warning w-100" type="submit" onclick="return confirm('Archive published results for selected program and attach to semester folders?')">Archive Results</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            {% if workflows %}
+                <div class="list-group">
+                    {% for w in workflows %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ w.result.student.student_id }}</strong> — {{ w.result.student.user.get_full_name }}
+                                    <div class="small text-muted">{{ w.result.subject }} • {{ w.result.academic_year }} S{{ w.result.semester }}</div>
+                                </div>
+                                <div>
+                                    <a href="{% url 'exam_officer_publish_result' w.id %}" class="btn btn-sm btn-outline-primary">Review</a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">No workflows found.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

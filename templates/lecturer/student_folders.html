@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Folders{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Student Semester Folders</h3>
+            <p class="small text-muted">View consolidated results per student by academic year and semester.</p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <form class="row g-2 mb-3" method="get">
+                <div class="col-auto">
+                    <input name="q" value="{{ q }}" class="form-control" placeholder="Search by student id or name">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-secondary" type="submit">Search</button>
+                </div>
+            </form>
+
+            {% if folders %}
+                <div class="list-group">
+                    {% for f in folders %}
+                        <a href="{% url 'lecturer_folder_detail' f.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ f.student.user.get_full_name }} — {{ f.student.student_id }}</h5>
+                                <small>{{ f.academic_year }} • Semester {{ f.semester }}</small>
+                            </div>
+                            <p class="mb-1 small text-muted">Program: {{ f.program.name if f.program else '-' }} | Department: {{ f.department.name if f.department else '-' }}</p>
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <nav class="mt-3">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}">Previous</a></li>
+                        {% endif %}
+                        <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}">Next</a></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% else %}
+                <div class="alert alert-info">No student folders found.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

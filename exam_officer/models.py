@@ -21,6 +21,10 @@ class ExamOfficer(models.Model):
 class Notification(models.Model):
     NOTIFICATION_TYPE_CHOICES = [
         ('result', 'Result Published'),
+        ('hod_approved', 'HOD Approved'),
+        ('hod_rejected', 'HOD Rejected'),
+        ('dean_approved', 'Dean Approved'),
+        ('dean_rejected', 'Dean Rejected'),
         ('report', 'Report'),
         ('system', 'System Notice'),
         ('warning', 'Warning'),
@@ -29,17 +33,28 @@ class Notification(models.Model):
     title = models.CharField(max_length=200)
     message = models.TextField()
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPE_CHOICES)
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='notifications_created')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_notifications')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='exam_notifications_created')
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(blank=True, null=True)
+    
+    # Optional references
+    result = models.ForeignKey('student.Result', on_delete=models.CASCADE, null=True, blank=True, related_name='exam_notifications')
+    workflow = models.ForeignKey('admin_hierarchy.ResultApprovalWorkflow', on_delete=models.CASCADE, null=True, blank=True, related_name='exam_notifications')
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
         return self.title
+    
+    def mark_as_read(self):
+        if not self.is_read:
+            from django.utils import timezone
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
 
 
 class SystemReport(models.Model):

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Folder Detail{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <a href="{% url 'lecturer_student_folders' %}" class="btn btn-outline-secondary btn-sm mb-3">← Back to folders</a>
+            <h4>{{ folder.student.user.get_full_name }} — {{ folder.student.student_id }}</h4>
+            <p class="small text-muted">{{ folder.academic_year }} • Semester {{ folder.semester }}</p>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    {% if results %}
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Score</th>
+                                    <th>Total</th>
+                                    <th>Grade</th>
+                                    <th>Uploaded By</th>
+                                    <th>Published</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in results %}
+                                    <tr>
+                                        <td>{{ r.subject }}</td>
+                                        <td>{{ r.score }}</td>
+                                        <td>{{ r.total_score }}</td>
+                                        <td>{{ r.grade }}</td>
+                                        <td>{{ r.uploaded_by.user.get_full_name if r.uploaded_by else '-' }}</td>
+                                        <td>{% if r.is_published %}Yes{% else %}No{% endif %}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="alert alert-info">No results available in this folder yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

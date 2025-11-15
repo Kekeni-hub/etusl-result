@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Confirm Delete</h2>
+<p>Are you sure you want to delete the result for <strong>{{ result.student }}</strong> - <em>{{ result.subject }}</em>?</p>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="confirm" value="1" />
+    <button type="submit">Yes, delete</button>
+    <a href="{% url 'lecturer_results_list' %}">Cancel</a>
+</form>
+
+{% endblock %}

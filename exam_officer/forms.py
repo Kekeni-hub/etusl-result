@@ -17,6 +17,22 @@ class OfficerStudentForm(forms.Form):
     address = forms.CharField(widget=forms.Textarea, required=False, label='Address')
     photo = forms.ImageField(required=False, label='Profile Photo')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure consistent Bootstrap classes on widgets
+        for name, field in self.fields.items():
+            widget = field.widget
+            # Apply form-select for choice/modelchoice widgets
+            if isinstance(widget, (forms.Select, forms.NullBooleanSelect)) or getattr(field, 'choices', None):
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-select').strip()
+            elif isinstance(widget, (forms.Textarea,)):
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-control').strip()
+            else:
+                existing = widget.attrs.get('class', '')
+                widget.attrs['class'] = (existing + ' form-control').strip()
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         from django.contrib.auth.models import User

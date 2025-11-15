@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Semester Folders - Dean{% endblock %}
+
+{% block content %}
+<style>
+    /* Standardize search/filter form inputs */
+    .search-form .form-control,
+    .search-form .form-select {
+        height: 44px;
+        padding: .5rem .75rem;
+        font-size: 0.95rem;
+    }
+    .search-form .btn {
+        height: 44px;
+    }
+    /* Archive form card styling */
+    .archive-form {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+    }
+    .archive-form .form-control,
+    .archive-form .form-select {
+        height: 44px;
+        padding: .5rem .75rem;
+        font-size: 0.95rem;
+        border: 1px solid #ced4da;
+    }
+    .archive-form .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-size: 0.95rem;
+    }
+    .archive-form .btn {
+        height: 44px;
+        font-weight: 500;
+    }
+    .archive-form-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #333;
+    }
+</style>
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Student Semester Folders</h3>
+            <p class="small text-muted">View all student results consolidated by academic year and semester across your faculty's departments and programs.</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Search & Filter</h5>
+                </div>
+                <div class="card-body">
+                    <form class="row g-2 search-form" method="get">
+                        <div class="col-md-3">
+                            <input name="q" value="{{ q }}" class="form-control" placeholder="Search by student ID or name">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="department" class="form-select">
+                                <option value="">-- All Departments --</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept.id }}" {% if department_id == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="program" class="form-select">
+                                <option value="">-- All Programs --</option>
+                                {% for prog in programs %}
+                                    <option value="{{ prog.id }}" {% if program_id == prog.id|stringformat:"s" %}selected{% endif %}>{{ prog.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" type="submit">Search</button>
+                        </div>
+                    </form>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div style="padding: 1.5rem; background: #f0f8ff; border: 1px solid #b0e0e6; border-radius: 0.5rem;">
+                                <h6 style="margin-bottom: 1rem; font-weight: 600; color: #333;">Export Results</h6>
+                                <a href="{% url 'export_results_csv' %}?{% if department_id %}department={{ department_id }}&{% endif %}{% if program_id %}program={{ program_id }}&{% endif %}academic_year={{ request.GET.academic_year|default_if_none:'' }}&semester={{ request.GET.semester|default_if_none:'' }}" class="btn btn-success">Export CSV</a>
+                                <small class="text-muted d-block mt-2">Download published results (filters applied) as CSV file.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Archive results form -->
+                            <form method="post" action="{% url 'archive_program_results' %}" class="archive-form">
+                                {% csrf_token %}
+                                <div class="archive-form-title">Archive Results</div>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Faculty</label>
+                                        <select name="faculty_id" class="form-select">
+                                            <option value="">-- Choose Faculty --</option>
+                                            {% for fac in all_faculties %}
+                                                <option value="{{ fac.id }}">{{ fac.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Department</label>
+                                        <select name="department_id" class="form-select">
+                                            <option value="">-- Choose Department --</option>
+                                            {% for dept in all_departments %}
+                                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Program</label>
+                                        <select name="program_id" class="form-select" required>
+                                            <option value="">-- Choose Program --</option>
+                                            {% for prog in all_programs %}
+                                                <option value="{{ prog.id }}">{{ prog.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Academic Year</label>
+                                        <input name="academic_year" class="form-control" placeholder="e.g., 2024/2025" required />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Semester</label>
+                                        <select name="semester" class="form-select" required>
+                                            <option value="">-- Choose Semester --</option>
+                                            <option value="1">Semester 1</option>
+                                            <option value="2">Semester 2</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <button class="btn btn-warning w-100" type="submit" onclick="return confirm('Archive published results for selected program and attach to semester folders?')">Archive Results</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% if q or department_id or program_id %}
+                        <div class="mt-2">
+                            <a href="{% url 'dean_student_folders' %}" class="btn btn-secondary btn-sm">Clear All Filters</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            {% if folders %}
+                <div class="list-group">
+                    {% for folder in folders %}
+                        <a href="{% url 'dean_folder_detail' folder.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ folder.student.user.get_full_name }} — {{ folder.student.student_id }}</h5>
+                                <small class="text-muted">{{ folder.academic_year }} • Semester {{ folder.semester }}</small>
+                            </div>
+                            <p class="mb-1 small text-muted">
+                                Department: <strong>{% if folder.department %}{{ folder.department.name }}{% else %}-{% endif %}</strong> |
+                                Program: <strong>{% if folder.program %}{{ folder.program.name }}{% else %}-{% endif %}</strong> |
+                                Results: <strong>{{ folder.results.count }}</strong>
+                            </p>
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1&q={{ q }}{% if department_id %}&department={{ department_id }}{% endif %}{% if program_id %}&program={{ program_id }}{% endif %}">First</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&q={{ q }}{% if department_id %}&department={{ department_id }}{% endif %}{% if program_id %}&program={{ program_id }}{% endif %}">Previous</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">First</span></li>
+                                <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}{% if department_id %}&department={{ department_id }}{% endif %}{% if program_id %}&program={{ program_id }}{% endif %}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&q={{ q }}{% if department_id %}&department={{ department_id }}{% endif %}{% if program_id %}&program={{ program_id }}{% endif %}">Last</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                                <li class="page-item disabled"><span class="page-link">Last</span></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">No student folders found. Results will appear here as lecturers submit grades.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

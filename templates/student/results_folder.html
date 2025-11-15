@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}My Results Folder{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>📁 My Results Folder</h2>
+            <p class="text-muted">All modules and assessments organized by academic year and semester with GPA</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mt-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="card-title text-primary">{{ total_modules }}</h3>
+                    <p class="card-text text-muted">Total Modules</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="card-title text-success">{{ avg_grade }}</h3>
+                    <p class="card-text text-muted">Average Grade</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="card-title text-warning">{{ overall_gpa }}</h3>
+                    <p class="card-text text-muted">Overall GPA</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h3 class="card-title text-info">{{ student.program.name|truncatewords:2 }}</h3>
+                    <p class="card-text text-muted">Current Program</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results by Semester Folder -->
+    {% if folders_data %}
+        {% for folder_item in folders_data %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="mb-0">
+                                📚 {{ folder_item.folder.academic_year }} — Semester {{ folder_item.folder.semester }}
+                                <span class="badge badge-light">{{ folder_item.results.count }} Subject{{ folder_item.results.count|pluralize }}</span>
+                            </h5>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="small">
+                                <span><strong>Semester GPA:</strong> 
+                                    {% if folder_item.gpa > 0 %}
+                                        <span class="badge bg-warning text-dark">{{ folder_item.gpa }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </span>
+                                <span class="ms-2"><strong>Score:</strong> 
+                                    {% if folder_item.total_score > 0 %}
+                                        <span class="badge bg-info">{{ folder_item.total_score }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if folder_item.results %}
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr class="bg-light">
+                                        <th>Subject / Course</th>
+                                        <th class="text-center">Assessment Type</th>
+                                        <th class="text-center">Score</th>
+                                        <th class="text-center">Grade</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in folder_item.results %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ result.subject }}</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <small class="text-muted">{{ result.get_result_type_display }}</small>
+                                            </td>
+                                            <td class="text-center">
+                                                {% if result.score and result.total_score %}
+                                                    <span class="badge badge-primary">
+                                                        {{ result.score }}/{{ result.total_score }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">—</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if result.grade == 'A' %}
+                                                    <span class="badge bg-success">{{ result.grade }}</span>
+                                                {% elif result.grade == 'B' %}
+                                                    <span class="badge bg-success">{{ result.grade }}</span>
+                                                {% elif result.grade == 'C' %}
+                                                    <span class="badge bg-info">{{ result.grade }}</span>
+                                                {% elif result.grade == 'D' %}
+                                                    <span class="badge bg-warning text-dark">{{ result.grade }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">{{ result.grade }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if result.is_published %}
+                                                    <span class="badge bg-success">Published</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                <a href="{% url 'download_result' result.id %}" 
+                                                   class="btn btn-sm btn-outline-primary" 
+                                                   title="Download result">
+                                                    ⬇️
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-sm alert-info mb-0">No results available yet for this semester.</div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <h5 class="alert-heading">No Results Yet</h5>
+            <p>You don't have any published results yet. Check back after lecturers submit your grades and they are approved.</p>
+        </div>
+    {% endif %}
+
+    <!-- Back to Dashboard -->
+    <div class="mt-5 mb-3">
+        <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary">← Back to Dashboard</a>
+    </div>
+</div>
+
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+    
+    .card-header h5 {
+        margin: 0;
+    }
+    
+    .badge-light {
+        background-color: #f0f0f0 !important;
+        color: #333 !important;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    @media print {
+        .btn, .card-header {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+

@@ -5,6 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Student Result Management System{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+        <style>
+        /* Make login/register cards have consistent width and centered */
+        .auth-card { max-width: 520px; margin: 0 auto; }
+        /* Wider form card for admin-style pages (add student, bulk forms) */
+        .form-card { max-width: 760px; margin: 0 auto; }
+        /* Standardize input sizes for auth and registration forms */
+        .card .form-control, .card .form-select {
+            height: 44px;
+            padding: .5rem .75rem;
+            font-size: 1rem;
+            border-radius: .35rem;
+        }
+        /* Ensure wider form-card inputs use full width and slightly taller controls */
+        .form-card .form-control, .form-card .form-select {
+            height: 50px;
+            padding: .6rem .85rem;
+            font-size: 1rem;
+            border-radius: .35rem;
+            width: 100%;
+        }
+        /* Force plain inputs/selects/textareas inside form-card to be full-width and equal height
+           This covers Django-rendered widgets that may not include `form-control` class. */
+        .form-card input[type="text"],
+        .form-card input[type="email"],
+        .form-card input[type="number"],
+        .form-card input[type="tel"],
+        .form-card input[type="password"],
+        .form-card textarea,
+        .form-card select,
+        .form-card input[type="date"] {
+            display: block;
+            width: 100% !important;
+            height: 50px;
+            padding: .6rem .85rem;
+            font-size: 1rem;
+            border-radius: .35rem;
+            box-sizing: border-box;
+        }
+        /* Make textarea a bit taller */
+        .form-card textarea { height: 120px; }
+        .card .form-label {
+            font-weight: 600;
+            margin-bottom: .5rem;
+        }
+        .card .btn {
+            height: 48px;
+            line-height: 1.2;
+        }
+        </style>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
@@ -80,3 +129,33 @@
     {% block extra_js %}{% endblock %}
 </body>
 </html>
+
+<script>
+// Global logout confirmation: intercept logout links and forms
+document.addEventListener('click', function(e) {
+    try {
+        const anchor = e.target.closest && e.target.closest('a');
+        if (!anchor) return;
+        const href = anchor.getAttribute('href') || '';
+        // Match common logout URL patterns or links with class 'logout-link'
+        if (anchor.classList.contains('logout-link') || /\blogout\b/i.test(href) || /logout\/?$/.test(href)) {
+            const ok = confirm('Are you sure you want to logout of this page?');
+            if (!ok) e.preventDefault();
+        }
+    } catch (err) {
+        // fail silently
+    }
+});
+
+// Also intercept forms that post to logout endpoints
+document.addEventListener('submit', function(e) {
+    try {
+        const form = e.target;
+        const action = form.getAttribute('action') || '';
+        if (form.classList.contains('logout-form') || /\blogout\b/i.test(action) || /logout\/?$/.test(action)) {
+            const ok = confirm('Are you sure you want to logout of this page?');
+            if (!ok) e.preventDefault();
+        }
+    } catch (err) {}
+});
+</script>

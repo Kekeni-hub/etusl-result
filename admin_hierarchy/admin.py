@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import HeadOfDepartment, DeanOfFaculty, ResultApprovalWorkflow, ApprovalHistory
+from .models import HeadOfDepartment, DeanOfFaculty, ResultApprovalWorkflow, ApprovalHistory, DeviceToken
 
 
 @admin.register(HeadOfDepartment)
@@ -30,3 +30,10 @@ class ApprovalHistoryAdmin(admin.ModelAdmin):
     search_fields = ('workflow__result__student__user__username', 'admin_user__username')
     list_filter = ('action', 'created_at')
     readonly_fields = ('created_at',)
+
+
+@admin.register(DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'platform', 'token', 'created_at')
+    search_fields = ('user__username', 'token')
+    readonly_fields = ('created_at', 'updated_at')

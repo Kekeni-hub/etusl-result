@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<h2>Your Uploaded Results</h2>
+
+<form method="get" action="">
+    <input type="text" name="q" placeholder="Search by student ID or subject" value="{{ q }}" />
+    <button type="submit">Search</button>
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>Student</th>
+            <th>Subject</th>
+            <th>Score</th>
+            <th>Total</th>
+            <th>Grade</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in results %}
+        <tr>
+            <td>{{ r.student }}</td>
+            <td>{{ r.subject }}</td>
+            <td>{{ r.score }}</td>
+            <td>{{ r.total_score }}</td>
+            <td>{{ r.grade }}</td>
+            <td>{{ r.uploaded_date }}</td>
+            <td>
+                <a href="{% url 'lecturer_edit_result' r.id %}">Edit</a>
+                |
+                <form action="{% url 'lecturer_delete_result' r.id %}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this result?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="confirm" value="1" />
+                    <button type="submit">Delete</button>
+                </form>
+                |
+                <form action="{% url 'lecturer_submit_result' r.id %}" method="post" style="display:inline;" onsubmit="return confirm('Submit this result to HOD for review?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="confirm" value="1" />
+                    <button type="submit">Submit</button>
+                </form>
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="7">No results found.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="pagination">
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">Previous</a>
+    {% endif %}
+
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">Next</a>
+    {% endif %}
+</div>
+
+{% endblock %}

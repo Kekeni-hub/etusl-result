@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Folder Details - Dean{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-12">
+            <a href="{% url 'dean_student_folders' %}" class="btn btn-outline-secondary btn-sm mb-3">← Back to Student Folders</a>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{{ folder.student.user.get_full_name }} — {{ folder.student.student_id }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-2">
+                            <p><strong>Academic Year:</strong> {{ folder.academic_year }}</p>
+                            <p><strong>Semester:</strong> {{ folder.semester }}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p><strong>Faculty:</strong> {% if folder.faculty %}{{ folder.faculty.name }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p><strong>Department:</strong> {% if folder.department %}{{ folder.department.name }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p><strong>Program:</strong> {% if folder.program %}{{ folder.program.name }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div class="col-md-2">
+                            <p><strong>Total Score:</strong> 
+                                {% if folder.total_score > 0 %}
+                                    <span class="badge bg-info">{{ folder.total_score }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-2">
+                            <p><strong>Semester GPA:</strong> 
+                                {% if folder.gpa > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ folder.gpa }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    {% if results %}
+                        <h5>Consolidated Results</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Subject/Course</th>
+                                        <th>Assessment Type</th>
+                                        <th>Score</th>
+                                        <th>Total</th>
+                                        <th>Grade</th>
+                                        <th>Uploaded By</th>
+                                        <th>Published</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in results %}
+                                        <tr>
+                                            <td><strong>{{ result.subject }}</strong></td>
+                                            <td>{{ result.get_result_type_display }}</td>
+                                            <td>{{ result.score }}</td>
+                                            <td>{{ result.total_score }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ result.grade }}</span>
+                                            </td>
+                                            <td>
+                                                {% if result.uploaded_by %}
+                                                    {{ result.uploaded_by.user.get_full_name }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if result.is_published %}
+                                                    <span class="badge bg-success">Yes</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">No</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No results available in this folder yet. Results will appear here as lecturers submit assessments.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

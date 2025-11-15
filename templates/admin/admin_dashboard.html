@@ -1,22 +1,24 @@
 {% extends 'base.html' %}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Exam Officer Dashboard{% endblock %}
 
 {% block content %}
 <div class="container-fluid my-4">
     <div class="row mb-4">
         <div class="col-md-12">
-            <h2 class="text-danger">Admin Dashboard</h2>
-            <p>Welcome, {{ user.first_name }}!</p>
+            <h2 class="text-success">Exam Officer Dashboard</h2>
+            <p class="text-muted">Results Publication & Management</p>
         </div>
     </div>
 
+    <!-- Key Metrics -->
     <div class="row mb-4">
         <div class="col-md-3">
-            <div class="card text-white bg-primary border-0">
+            <div class="card text-white bg-info border-0">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Total Students</h5>
-                    <h2>{{ total_students }}</h2>
+                    <h5 class="card-title">Pending Approval</h5>
+                    <h2>{{ dean_approved_count }}</h2>
+                    <small>Awaiting Publication</small>
                 </div>
             </div>
         </div>
@@ -24,8 +26,9 @@
         <div class="col-md-3">
             <div class="card text-white bg-success border-0">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Total Lecturers</h5>
-                    <h2>{{ total_lecturers }}</h2>
+                    <h5 class="card-title">Published Results</h5>
+                    <h2>{{ published_results }}</h2>
+                    <small>Total Published</small>
                 </div>
             </div>
         </div>
@@ -33,17 +36,19 @@
         <div class="col-md-3">
             <div class="card text-white bg-warning border-0">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Pending Verification</h5>
-                    <h2>{{ pending_verification }}</h2>
+                    <h5 class="card-title">Pending Reviews</h5>
+                    <h2>{{ pending_results }}</h2>
+                    <small>Not Yet Published</small>
                 </div>
             </div>
         </div>
 
         <div class="col-md-3">
-            <div class="card text-white bg-info border-0">
+            <div class="card text-white bg-primary border-0">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Published Results</h5>
-                    <h2>{{ published_results }}</h2>
+                    <h5 class="card-title">Total Processed</h5>
+                    <h2>{{ workflows_published }}</h2>
+                    <small>All Time</small>
                 </div>
             </div>
         </div>
@@ -52,28 +57,20 @@
     <div class="row">
         <div class="col-md-3">
             <div class="list-group">
-                <h5 class="p-3 border-bottom">Admin Menu</h5>
-                <a href="{% url 'manage_faculties' %}" class="list-group-item list-group-item-action">
-                    📚 Manage Faculties
+                <h5 class="p-3 border-bottom">Exam Officer Menu</h5>
+                <a href="{% url 'exam_officer_preview_results' %}" class="list-group-item list-group-item-action">
+                    👁️ Preview Results
                 </a>
-                <a href="{% url 'manage_departments' %}" class="list-group-item list-group-item-action">
-                    🏢 Manage Departments
-                </a>
-                <a href="{% url 'officer_add_student' %}" class="list-group-item list-group-item-action">
-                    👨‍🎓 Add Student
-                </a>
-                <a href="{% url 'officer_add_program' %}" class="list-group-item list-group-item-action">
-                    🎓 Add Program
-                </a>
-                <a href="{% url 'manage_results' %}" class="list-group-item list-group-item-action">
-                    📊 Manage Results
+                <a href="{% url 'manage_dean_approved_results' %}" class="list-group-item list-group-item-action">
+                    📋 Manage Dean Approved
                 </a>
                 <a href="{% url 'send_notification' %}" class="list-group-item list-group-item-action">
                     🔔 Send Notifications
                 </a>
                 <a href="{% url 'view_reports' %}" class="list-group-item list-group-item-action">
-                    📄 View Reports
+                    📊 View Reports
                 </a>
+                <hr>
                 <a href="{% url 'admin_logout' %}" class="list-group-item list-group-item-action text-danger">
                     🚪 Logout
                 </a>
@@ -82,18 +79,53 @@
 
         <div class="col-md-9">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0">System Overview</h5>
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Results Publication Workflow</h5>
                 </div>
                 <div class="card-body">
-                    <p>Welcome to the Admin Dashboard. Use the menu on the left to manage:</p>
-                    <ul>
-                        <li><strong>Faculties</strong> - Create, edit, and manage faculties</li>
-                        <li><strong>Departments</strong> - Create, edit, and manage departments within faculties</li>
-                        <li><strong>Results</strong> - Review and publish student results</li>
-                        <li><strong>Notifications</strong> - Send messages to students and lecturers</li>
-                        <li><strong>Reports</strong> - Generate and view system reports</li>
+                    <div class="alert alert-info">
+                        <h6>Your Role:</h6>
+                        <p>As Exam Officer, you are responsible for:</p>
+                    </div>
+                    <ul class="list-unstyled">
+                        <li><span class="badge badge-info">1</span> <strong>Preview Results</strong> - View all dean-approved results before publication</li>
+                        <li><span class="badge badge-info">2</span> <strong>Manage Approvals</strong> - Approve or reject results with notes</li>
+                        <li><span class="badge badge-info">3</span> <strong>Publish Results</strong> - Publish approved results to students</li>
+                        <li><span class="badge badge-info">4</span> <strong>Send Notifications</strong> - Notify departments and faculties of published results</li>
                     </ul>
+
+                    <hr>
+
+                    <h6 class="mt-4">Workflow Status:</h6>
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <p class="text-muted">Lecturer</p>
+                            <p>↓</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-muted">HOD Review</p>
+                            <p>↓</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-muted">Dean Approval</p>
+                            <p>↓</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-success"><strong>You (Exam Officer)</strong></p>
+                            <p>→ Publish</p>
+                        </div>
+                    </div>
+
+                    {% if dean_approved_count > 0 %}
+                        <div class="alert alert-warning mt-4">
+                            <strong>⚠️ Action Required:</strong> You have {{ dean_approved_count }} result(s) awaiting your review and publication.
+                            <a href="{% url 'exam_officer_preview_results' %}" class="alert-link">Go to Preview</a>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success mt-4">
+                            ✅ All results are up to date. No pending approvals.
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

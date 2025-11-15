@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from student.models import Faculty, Department
-from .models import DeanOfFaculty
+from admin_hierarchy.models import DeanOfFaculty
 
 class DeanDashboardAccessTest(TestCase):
     def setUp(self):

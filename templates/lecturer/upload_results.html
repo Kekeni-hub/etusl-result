@@ -21,6 +21,26 @@
                         {% csrf_token %}
 
                         <div class="mb-3">
+                            <label class="form-label">Faculty</label>
+                            <select class="form-select" id="facultySelect" name="faculty">
+                                <option value="">-- Select Faculty (optional) --</option>
+                                {% for f in faculties %}
+                                    <option value="{{ f.id }}">{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" id="departmentSelect" name="department">
+                                <option value="">-- Select Department (optional) --</option>
+                                {% for d in departments %}
+                                    <option value="{{ d.id }}">{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Program</label>
                             <select class="form-select" name="program" id="programSelect" required>
                                 <option value="">Select Program</option>
@@ -30,35 +50,6 @@
                                     <option value="" disabled>No programs available</option>
                                 {% endfor %}
                             </select>
-                            {% if not programs %}
-                                <small class="text-danger d-block mt-2">
-                                    No programs available. Please contact administration.
-                                </small>
-                            {% endif %}
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Subject</label>
-                            <input type="text" class="form-control" name="subject" required>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Result Type</label>
-                                <select class="form-select" name="result_type" required>
-                                    <option value="">Select Type</option>
-                                    <option value="exam">Exam</option>
-                                    <option value="test">Test</option>
-                                    <option value="assignment">Assignment</option>
-                                    <option value="presentation">Presentation</option>
-                                    <option value="attendance">Attendance</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Total Score</label>
-                                <input type="number" class="form-control" name="total_score" value="100" step="0.01" required>
-                            </div>
                         </div>
 
                         <div class="row">
@@ -77,12 +68,25 @@
                             </div>
                         </div>
 
+                        <hr>
+                        <h6>Continuous Assessments & Results <span class="text-danger">*</span> (Required - up to 9)</h6>
+                        <p class="small text-muted">Enter continuous assessment (course) code or name for each entry and provide assessment scores. At least one entry is required.</p>
+                        <div id="modulesContainer">
+                            <!-- Continuous assessment rows will be appended here -->
+                        </div>
                         <div class="mb-3">
-                            <label class="form-label">Students and Scores</label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="addModuleBtn">+ Add Continuous Assessment</button>
+                            <small class="text-muted ms-2">You can add up to 9 continuous assessments per submission.</small>
+                        </div>
+
+                        <hr>
+                        <h6>Students <span class="text-danger">*</span> (Required)</h6>
+                        <div class="mb-3">
                             {% if students %}
+                                <p class="small text-muted">Select at least one student to submit results for.</p>
                                 <div id="studentsContainer">
                                     <div class="row mb-2 student-row">
-                                        <div class="col-md-8">
+                                        <div class="col-md-10">
                                             <select name="students[]" class="form-select student-select" required>
                                                 <option value="">Select student</option>
                                                 {% for s in students %}
@@ -90,12 +94,12 @@
                                                 {% endfor %}
                                             </select>
                                         </div>
-                                        <div class="col-md-4">
-                                            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01" required>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="removeStudentRow(this)">Remove</button>
                                         </div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addStudentRow()">Add More Students</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addStudentRow()">+ Add Student</button>
                             {% else %}
                                 <div class="alert alert-warning" role="alert">
                                     <strong>No students available.</strong> There are currently no students in your faculty/department/program.
@@ -104,6 +108,7 @@
                             {% endif %}
                         </div>
 
+                        <input type="hidden" name="assessments_json" id="assessments_json">
                         <button type="submit" class="btn btn-success w-100">Upload Results</button>
                     </form>
                 </div>
@@ -113,10 +118,11 @@
 </div>
 
 <script>
-// Initialize students data from Django template context
-// {% verbatim %}
+// Initialize students, modules, departments and programs data from Django template context
 const studentsData = JSON.parse('{{ students_json|escapejs }}');
-// {% endverbatim %}
+const modulesData = JSON.parse('{{ modules_json|escapejs }}');
+const departmentsData = JSON.parse('{{ departments_json|escapejs }}');
+const programsData = JSON.parse('{{ programs_json|escapejs }}');
 
 function addStudentRow() {
     const container = document.getElementById('studentsContainer');
@@ -124,29 +130,238 @@ function addStudentRow() {
         alert('No students available. Cannot add more rows.');
         return;
     }
-    
+
     if (studentsData.length === 0) {
         alert('No students available to add.');
         return;
     }
-    
+
     const newRow = document.createElement('div');
     newRow.className = 'row mb-2 student-row';
     let options = '<option value="">Select student</option>';
-    
-    studentsData.forEach(s => { 
-        options += `<option value="${s.id}">${s.label}</option>`; 
+
+    studentsData.forEach(s => {
+        options += `<option value="${s.id}">${s.label}</option>`;
     });
-    
+
     newRow.innerHTML = `
-        <div class="col-md-8">
+        <div class="col-md-10">
             <select name="students[]" class="form-select student-select" required>${options}</select>
         </div>
-        <div class="col-md-4">
-            <input type="number" class="form-control" name="scores[]" placeholder="Score" step="0.01" required>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeStudentRow(this)">Remove</button>
         </div>
     `;
     container.appendChild(newRow);
 }
+
+function removeStudentRow(btn) {
+    const row = btn.closest('.student-row');
+    if (row) row.remove();
+}
+
+// Module rows
+const maxModules = 9;
+
+function addModuleRow() {
+    const container = document.getElementById('modulesContainer');
+    const current = container.querySelectorAll('.module-row').length;
+            if (current >= maxModules) {
+        alert('Maximum of 9 continuous assessments per submission.');
+        return;
+    }    const row = document.createElement('div');
+    row.className = 'module-row border rounded p-3 mb-3';
+    row.style.backgroundColor = '#f8f9fa';
+    row.innerHTML = `
+                <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label"><strong>Continuous Assessment (Course) <span class="text-danger">*</span></strong></label>
+                <input type="text" class="form-control module-code" placeholder="e.g., Biology, CS101, MATH201" required>
+                <small class="text-muted">Enter the continuous assessment course code or name</small>
+            </div>
+            <div class="col-md-6 text-end">
+                <button type="button" class="btn btn-danger btn-sm mt-4" onclick="removeModuleRow(this)">Remove Assessment</button>
+            </div>
+        </div>        <div class="row">
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Exam</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control assessment-score" data-type="exam" step="0.01" placeholder="Score" min="0">
+                    <span class="input-group-text">/</span>
+                    <input type="number" class="form-control assessment-total" data-type="exam" step="0.01" placeholder="Total" value="100" min="0">
+                </div>
+                <small class="text-muted d-block mt-1">Optional</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Test</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control assessment-score" data-type="test" step="0.01" placeholder="Score" min="0">
+                    <span class="input-group-text">/</span>
+                    <input type="number" class="form-control assessment-total" data-type="test" step="0.01" placeholder="Total" value="0" min="0">
+                </div>
+                <small class="text-muted d-block mt-1">Optional</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Assignment</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control assessment-score" data-type="assignment" step="0.01" placeholder="Score" min="0">
+                    <span class="input-group-text">/</span>
+                    <input type="number" class="form-control assessment-total" data-type="assignment" step="0.01" placeholder="Total" value="0" min="0">
+                </div>
+                <small class="text-muted d-block mt-1">Optional</small>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Attendance</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control assessment-score" data-type="attendance" step="0.01" placeholder="Score" min="0">
+                    <span class="input-group-text">/</span>
+                    <input type="number" class="form-control assessment-total" data-type="attendance" step="0.01" placeholder="Total" value="0" min="0">
+                </div>
+                <small class="text-muted d-block mt-1">Optional</small>
+            </div>
+        </div>
+    `;
+    container.appendChild(row);
+}
+
+function removeModuleRow(btn) {
+    const row = btn.closest('.module-row');
+    if (row) row.remove();
+}
+
+document.getElementById('addModuleBtn').addEventListener('click', addModuleRow);
+
+// Client-side filtering: when faculty or department changes, filter department/program selects
+const facultySelect = document.getElementById('facultySelect');
+const departmentSelect = document.getElementById('departmentSelect');
+const programSelect = document.getElementById('programSelect');
+
+function populateDepartmentOptions(facultyId) {
+    // clear current options
+    departmentSelect.innerHTML = '<option value="">-- Select Department (optional) --</option>';
+    departmentsData.forEach(d => {
+        if (!facultyId || (d.faculty_id && d.faculty_id.toString() === facultyId.toString())) {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.name;
+            departmentSelect.appendChild(opt);
+        }
+    });
+}
+
+function populateProgramOptions(departmentId, facultyId) {
+    programSelect.innerHTML = '<option value="">Select Program</option>';
+    programsData.forEach(p => {
+        if (departmentId) {
+            if (p.department_id && p.department_id.toString() === departmentId.toString()) {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                programSelect.appendChild(opt);
+            }
+        } else if (facultyId) {
+            // If department not selected, show programs whose department belongs to the faculty
+            const dept = departmentsData.find(d => d.id === p.department_id);
+            if (dept && dept.faculty_id && dept.faculty_id.toString() === facultyId.toString()) {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                programSelect.appendChild(opt);
+            }
+        } else {
+            // No filters, show all
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            programSelect.appendChild(opt);
+        }
+    });
+}
+
+facultySelect.addEventListener('change', function(){
+    const fid = this.value;
+    populateDepartmentOptions(fid);
+    // reset program options based on faculty
+    populateProgramOptions(null, fid);
+});
+
+departmentSelect.addEventListener('change', function(){
+    const did = this.value;
+    populateProgramOptions(did, facultySelect.value);
+});
+
+// Initialize selects to full lists on page load
+populateDepartmentOptions(facultySelect.value);
+populateProgramOptions(departmentSelect.value, facultySelect.value);
+
+// Build assessments_json on submit
+document.getElementById('uploadForm').addEventListener('submit', function(e){
+    // Build entries per (student x module)
+    const studentSelects = Array.from(document.querySelectorAll('.student-select'));
+    if (studentSelects.length === 0) {
+        alert('Please add at least one student.');
+        e.preventDefault();
+        return;
+    }
+
+    const moduleRows = Array.from(document.querySelectorAll('.module-row'));
+    if (moduleRows.length === 0) {
+        alert('Please add at least one continuous assessment.');
+        e.preventDefault();
+        return;
+    }
+
+    const year = document.querySelector('input[name="academic_year"]').value;
+    const semester = document.querySelector('select[name="semester"]').value;
+    const program = document.querySelector('select[name="program"]').value;
+
+    const payload = [];
+    const seenModules = new Set();
+
+    studentSelects.forEach(sel => {
+        const studentId = sel.value;
+        if (!studentId) return;
+        moduleRows.forEach(mrow => {
+            const moduleCodeInput = mrow.querySelector('.module-code');
+            const moduleCode = moduleCodeInput ? moduleCodeInput.value.trim() : null;
+            if (!moduleCode) {
+                alert('All modules must have a code entered.');
+                return;
+            }
+
+            seenModules.add(moduleCode);
+
+            const assessments = {};
+            const scoreInputs = mrow.querySelectorAll('.assessment-score');
+            scoreInputs.forEach(si => {
+                const atype = si.getAttribute('data-type');
+                const val = si.value;
+                const totalEl = mrow.querySelector(`.assessment-total[data-type="${atype}"]`);
+                const totalVal = totalEl ? totalEl.value : '';
+                if (val !== '' && val !== null && parseFloat(val) > 0) {
+                    assessments[atype] = { score: parseFloat(val) || 0, total: parseFloat(totalVal) || 100 };
+                }
+            });
+
+            payload.push({
+                student_id: parseInt(studentId),
+                module_code: moduleCode,
+                academic_year: year,
+                semester: semester,
+                program_id: program,
+                assessments: assessments
+            });
+        });
+    });
+
+    if (payload.length === 0) {
+        alert('No valid student/module entries found.');
+        e.preventDefault();
+        return;
+    }
+
+    document.getElementById('assessments_json').value = JSON.stringify(payload);
+    // allow submit to continue
+});
 </script>
 {% endblock %}

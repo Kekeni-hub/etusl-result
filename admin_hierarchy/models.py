@@ -104,3 +104,26 @@ class ApprovalHistory(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} by {self.admin_user.get_full_name()}"
+
+
+class DeviceToken(models.Model):
+    """Store FCM device tokens associated with a Django user."""
+    PLATFORM_CHOICES = [
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+        ('web', 'Web'),
+        ('other', 'Other'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='device_tokens')
+    token = models.CharField(max_length=255, unique=True, db_index=True)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default='other')
+    metadata = models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.platform} ({self.token[:8]}...)"

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}{{ department.name }}{% endblock %}
+{% block content %}
+<div class="container my-5">
+    <h2>{{ department.name }}</h2>
+    <h4>Programs</h4>
+    <ul class="list-group">
+    {% for p in programs %}
+        <li class="list-group-item">{{ p.name }}</li>
+    {% empty %}
+        <li class="list-group-item">No programs found.</li>
+    {% endfor %}
+    </ul>
+</div>
+{% endblock %}

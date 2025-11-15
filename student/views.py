@@ -9,7 +9,10 @@ from django.views.decorators.http import require_http_methods
 from io import BytesIO
 import json
 
-from .models import Student, Result
+from .models import Student, Result, StudentSemesterFolder
+from django.contrib.auth import update_session_auth_hash
+from django.urls import reverse
+
 
 def home(request):
     """Home page for login selection"""
@@ -24,26 +27,73 @@ def student_login(request):
             return redirect('student_dashboard')
     
     if request.method == 'POST':
-        name = request.POST.get('name')
-        student_id = request.POST.get('student_id')
-        email = request.POST.get('email')
-        
-        try:
-            student = Student.objects.get(
-                student_id=student_id,
-                email=email,
-                user__first_name__icontains=name,
-                is_active=True
-            )
-            
-            # Log the student in
-            login(request, student.user, backend='django.contrib.auth.backends.ModelBackend')
-            messages.success(request, f'Welcome back, {student.user.first_name}!')
-            return redirect('student_dashboard')
-        except Student.DoesNotExist:
-            messages.error(request, 'Invalid student credentials. Please check your details.')
-        except Student.MultipleObjectsReturned:
-            messages.error(request, 'Multiple students found. Please check your details.')
+        # Support two login modes:
+        # 1) Password-based: provide student_id and password -> authenticate against Django User
+        # 2) Info-based: provide name, student_id and email -> match Student record and log the linked User in
+
+        student_id = request.POST.get('student_id', '').strip()
+        email = request.POST.get('email', '').strip()
+        name = request.POST.get('name', '').strip()
+        password = request.POST.get('password', '').strip()
+
+        # If password provided, attempt standard authentication (username is the User.username created by DEAN)
+        if password:
+            # try to find the user by student_id first (username might be email as created by DEAN)
+            user = None
+            try:
+                student = Student.objects.get(student_id__iexact=student_id, is_active=True)
+                user = student.user
+            except Student.DoesNotExist:
+                # fallback: try to authenticate by username/email directly
+                pass
+
+            if user:
+                user_auth = authenticate(request, username=user.username, password=password)
+                if user_auth is not None:
+                        login(request, user_auth)
+                        # after login, check if student must change password
+                        try:
+                            student = user_auth.student_profile
+                            if getattr(student, 'must_change_password', False):
+                                return redirect('student_force_password_change')
+                        except Exception:
+                            pass
+                        messages.success(request, f'Welcome back, {user_auth.first_name}!')
+                        return redirect('student_dashboard')
+                else:
+                    messages.error(request, 'Invalid password. Please check and try again.')
+            else:
+                messages.error(request, 'Student account not found for provided Student ID.')
+        else:
+            # Info-based lookup (no password) - keep supporting the existing flow but make it more flexible
+            try:
+                # Try strict match first (student_id + email + name)
+                student = Student.objects.get(
+                    student_id__iexact=student_id,
+                    email__iexact=email,
+                    user__first_name__icontains=name,
+                    is_active=True
+                )
+            except Student.DoesNotExist:
+                # Fallbacks: match by student_id alone if unique and active
+                students_by_id = Student.objects.filter(student_id__iexact=student_id, is_active=True)
+                if students_by_id.count() == 1:
+                    student = students_by_id.first()
+                else:
+                    student = None
+            except Student.MultipleObjectsReturned:
+                student = None
+
+            if student:
+                # Log the student in without password (trusted info-based login)
+                login(request, student.user, backend='django.contrib.auth.backends.ModelBackend')
+                # prompt to change password if required
+                if getattr(student, 'must_change_password', False):
+                    return redirect('student_force_password_change')
+                messages.success(request, f'Welcome back, {student.user.first_name}!')
+                return redirect('student_dashboard')
+            else:
+                messages.error(request, 'Invalid student credentials. Please check your details or try using the temporary password provided by the DEAN.')
     
     return render(request, 'student/student_login.html')
 
@@ -74,6 +124,63 @@ def student_dashboard(request):
     }
     
     return render(request, 'student/student_dashboard.html', context)
+
+
+@login_required(login_url='student_login')
+def student_results_folder(request):
+    """Student results folder - show all modules taken organized by semester/year with GPA"""
+    try:
+        student = request.user.student_profile
+    except:
+        return redirect('student_login')
+    
+    # Get all semester folders for the student
+    folders = StudentSemesterFolder.objects.filter(
+        student=student
+    ).select_related('program', 'department', 'faculty').order_by('-academic_year', '-semester')
+    
+    # Get data for each folder
+    folders_data = []
+    for folder in folders:
+        results = folder.results.filter(is_published=True).order_by('subject')
+        folders_data.append({
+            'folder': folder,
+            'results': results,
+            'total_score': folder.total_score,
+            'gpa': folder.gpa,
+        })
+    
+    # Calculate cumulative statistics (across all semesters)
+    all_results = Result.objects.filter(student=student, is_published=True)
+    total_modules = all_results.count()
+    
+    # Overall average
+    avg_grade = 'N/A'
+    if all_results.exists():
+        grades = []
+        for result in all_results:
+            if result.score and result.total_score and result.total_score > 0:
+                percentage = (result.score / result.total_score) * 100
+                grades.append(percentage)
+        if grades:
+            avg_grade = f"{sum(grades) / len(grades):.2f}%"
+    
+    # Overall GPA (average of all semester GPAs)
+    overall_gpa = 'N/A'
+    if folders.exists():
+        gpa_values = [f.gpa for f in folders if f.gpa > 0]
+        if gpa_values:
+            overall_gpa = round(sum(gpa_values) / len(gpa_values), 2)
+
+    context = {
+        'student': student,
+        'folders_data': folders_data,
+        'total_modules': total_modules,
+        'avg_grade': avg_grade,
+        'overall_gpa': overall_gpa,
+    }
+    
+    return render(request, 'student/results_folder.html', context)
 
 
 @login_required(login_url='student_login')
@@ -180,4 +287,39 @@ def student_logout(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('student_login')
+
+
+@require_profile('student_profile', login_url='student_login')
+def student_force_password_change(request):
+    """Force student to set a new password on first login."""
+    try:
+        student = request.user.student_profile
+    except Exception:
+        return redirect('student_login')
+
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password', '').strip()
+        confirm_password = request.POST.get('confirm_password', '').strip()
+        if not new_password or not confirm_password:
+            messages.error(request, 'Please enter and confirm the new password.')
+            return redirect('student_force_password_change')
+        if new_password != confirm_password:
+            messages.error(request, 'Passwords do not match.')
+            return redirect('student_force_password_change')
+
+        # set the new password
+        user = request.user
+        user.set_password(new_password)
+        user.save()
+
+        # clear flag
+        student.must_change_password = False
+        student.save()
+
+        # keep the user logged in after password change
+        update_session_auth_hash(request, user)
+        messages.success(request, 'Password updated successfully.')
+        return redirect('student_dashboard')
+
+    return render(request, 'student/force_password_change.html', {'student': student})
 
