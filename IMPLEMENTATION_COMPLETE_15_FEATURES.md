@@ -21,8 +21,8 @@ All 15 advanced functionalities have been successfully implemented for the Stude
 ---
 
 ## 📂 File Structure
-
-```
+ 
+```text
 student/
 ├── models_enhanced.py           # 70+ new models for all features
 ├── utilities_enhanced.py        # 20+ utility functions
@@ -580,7 +580,7 @@ ENHANCED_FEATURES_GUIDE.md       # Complete implementation guide
 
 ## 📦 Dependencies Added
 
-```
+```text
 celery==5.4.0
 django-celery-beat==2.7.0
 django-celery-results==2.7.0

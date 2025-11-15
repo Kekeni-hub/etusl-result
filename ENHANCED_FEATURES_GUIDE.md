@@ -198,6 +198,10 @@ This document outlines the complete implementation of 15 advanced functionalitie
 - Grade submission deadline reminders
 - Attendance percentage calculation
 
+**API Endpoints**:
+- `GET /api/assignments/` - View assignments
+- `POST /api/assignment-submissions/` - Submit/view submissions
+
 ---
 
 ### 10. **Academic Calendar Management** ✓
@@ -568,5 +572,5 @@ For issues or questions about the enhanced features:
 
 ---
 
-**Last Updated**: November 15, 2025
+**Last Updated**: November 15, 2025  
 **Version**: 1.0
