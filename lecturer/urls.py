@@ -27,5 +27,9 @@ urlpatterns = [
     # Submission Deadlines
     path('deadlines/', views.submission_deadlines, name='submission_deadlines'),
     
+    # CSV Bulk Upload
+    path('upload-results-csv/', views.upload_results_csv, name='upload_results_csv'),
+    path('download-csv-template/', views.download_csv_template, name='download_csv_template'),
+    
     path('logout/', views.lecturer_logout, name='lecturer_logout'),
 ]

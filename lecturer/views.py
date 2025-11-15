@@ -929,3 +929,248 @@ def submission_deadlines(request):
     return render(request, 'lecturer/submission_deadlines.html', context)
 
 
+# ==================== CSV BULK UPLOAD ====================
+
+import csv
+from io import StringIO, TextIOWrapper
+from django.http import HttpResponse
+
+@login_required(login_url='lecturer_login')
+@require_http_methods(["GET", "POST"])
+def upload_results_csv(request):
+    """Upload results via CSV file, filtered by program and year"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    programs = Program.objects.all()
+    academic_years = [
+        ('2023/2024', '2023/2024'),
+        ('2024/2025', '2024/2025'),
+        ('2025/2026', '2025/2026'),
+    ]
+    semesters = [
+        ('1', 'Semester 1'),
+        ('2', 'Semester 2'),
+    ]
+    
+    if request.method == 'POST':
+        csv_file = request.FILES.get('csv_file')
+        program_id = request.POST.get('program')
+        academic_year = request.POST.get('academic_year')
+        semester = request.POST.get('semester')
+        
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file.')
+            return redirect('upload_results_csv')
+        
+        if not program_id:
+            messages.error(request, 'Please select a program.')
+            return redirect('upload_results_csv')
+        
+        if not academic_year:
+            messages.error(request, 'Please select an academic year.')
+            return redirect('upload_results_csv')
+        
+        if not semester:
+            messages.error(request, 'Please select a semester.')
+            return redirect('upload_results_csv')
+        
+        try:
+            program = Program.objects.get(id=program_id)
+        except Program.DoesNotExist:
+            messages.error(request, 'Invalid program selected.')
+            return redirect('upload_results_csv')
+        
+        # Parse CSV
+        try:
+            csv_text = TextIOWrapper(csv_file.file, encoding='utf-8')
+            reader = csv.DictReader(csv_text)
+            
+            if not reader.fieldnames:
+                messages.error(request, 'CSV file is empty.')
+                return redirect('upload_results_csv')
+            
+            # Validate headers
+            required_headers = {'Student_ID', 'Module_Code', 'Score'}
+            missing_headers = required_headers - set(reader.fieldnames or [])
+            if missing_headers:
+                messages.error(request, f'Missing required columns: {", ".join(missing_headers)}. Required: Student_ID, Module_Code, Score')
+                return redirect('upload_results_csv')
+            
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            for row_num, row in enumerate(reader, start=2):  # Start at 2 because row 1 is header
+                try:
+                    student_id = row.get('Student_ID', '').strip()
+                    module_code = row.get('Module_Code', '').strip()
+                    score_str = row.get('Score', '').strip()
+                    total_score_str = row.get('Total_Score', '100').strip()
+                    
+                    # Validate fields
+                    if not student_id:
+                        errors.append(f'Row {row_num}: Student_ID is required')
+                        continue
+                    
+                    if not module_code:
+                        errors.append(f'Row {row_num}: Module_Code is required')
+                        continue
+                    
+                    if not score_str:
+                        errors.append(f'Row {row_num}: Score is required')
+                        continue
+                    
+                    # Convert to numbers
+                    try:
+                        score = float(score_str)
+                    except ValueError:
+                        errors.append(f'Row {row_num}: Score "{score_str}" is not a valid number')
+                        continue
+                    
+                    try:
+                        total_score = float(total_score_str) if total_score_str else 100
+                    except ValueError:
+                        errors.append(f'Row {row_num}: Total_Score "{total_score_str}" is not a valid number')
+                        continue
+                    
+                    # Find student by student_id (not Django user ID)
+                    try:
+                        student = Student.objects.get(student_id=student_id)
+                    except Student.DoesNotExist:
+                        errors.append(f'Row {row_num}: Student with ID {student_id} not found')
+                        continue
+                    
+                    # Verify student belongs to selected program
+                    if student.program.id != program.id:
+                        errors.append(f'Row {row_num}: Student {student_id} is not in program {program.name}')
+                        continue
+                    
+                    # Find or create module
+                    module = Module.objects.filter(code=module_code).first()
+                    if not module:
+                        # Create module if it doesn't exist
+                        module = Module.objects.create(
+                            code=module_code,
+                            name=module_code,
+                            program=program,
+                            department=student.department,
+                            faculty=student.faculty,
+                        )
+                    
+                    # Calculate grade
+                    percentage = (score / total_score) * 100 if total_score else 0
+                    if percentage >= 80:
+                        grade = 'A'
+                    elif percentage >= 70:
+                        grade = 'B'
+                    elif percentage >= 60:
+                        grade = 'C'
+                    elif percentage >= 50:
+                        grade = 'D'
+                    else:
+                        grade = 'F'
+                    
+                    # Create or update result
+                    result, created = Result.objects.update_or_create(
+                        student=student,
+                        subject=module.name,
+                        result_type='exam',  # Default for CSV bulk upload
+                        academic_year=academic_year,
+                        semester=semester,
+                        defaults={
+                            'program': program,
+                            'department': student.department,
+                            'faculty': student.faculty,
+                            'score': score,
+                            'total_score': total_score,
+                            'grade': grade,
+                            'uploaded_by': lecturer,
+                        }
+                    )
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                    
+                    # Create workflow if needed
+                    try:
+                        hod = HeadOfDepartment.objects.filter(
+                            department=student.department,
+                            is_active=True
+                        ).first()
+                        if hod:
+                            ResultApprovalWorkflow.objects.update_or_create(
+                                result=result,
+                                defaults={
+                                    'status': 'lecturer_submitted',
+                                    'current_hod': hod,
+                                }
+                            )
+                    except Exception as e:
+                        errors.append(f'Row {row_num}: Workflow error: {str(e)}')
+                
+                except Exception as e:
+                    errors.append(f'Row {row_num}: {str(e)}')
+            
+            # Show summary
+            if created_count > 0 or updated_count > 0:
+                summary = f'Successfully uploaded {created_count} new results'
+                if updated_count > 0:
+                    summary += f' and updated {updated_count} existing results'
+                summary += '. Waiting for HOD approval.'
+                messages.success(request, summary)
+            
+            if errors:
+                error_summary = f'Encountered {len(errors)} errors:\n' + '\n'.join(errors[:10])
+                if len(errors) > 10:
+                    error_summary += f'\n... and {len(errors) - 10} more errors'
+                messages.warning(request, error_summary)
+            
+            if created_count == 0 and updated_count == 0:
+                messages.error(request, 'No results were imported. Please check the CSV file and try again.')
+                return redirect('upload_results_csv')
+            
+            return redirect('lecturer_dashboard')
+        
+        except Exception as e:
+            messages.error(request, f'Failed to parse CSV file: {str(e)}')
+            return redirect('upload_results_csv')
+    
+    context = {
+        'programs': programs,
+        'academic_years': academic_years,
+        'semesters': semesters,
+    }
+    return render(request, 'lecturer/upload_results_csv.html', context)
+
+
+@login_required(login_url='lecturer_login')
+def download_csv_template(request):
+    """Download a CSV template for result upload"""
+    try:
+        lecturer = request.user.lecturer_profile
+    except:
+        return redirect('lecturer_login')
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="results_template.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Write header
+    writer.writerow(['Student_ID', 'Module_Code', 'Score', 'Total_Score'])
+    
+    # Write example rows
+    writer.writerow(['STU001', 'CS101', '45', '100'])
+    writer.writerow(['STU002', 'CS101', '78', '100'])
+    writer.writerow(['STU003', 'CS102', '92', '100'])
+    writer.writerow(['', '', '', ''])  # Empty row for reference
+    
+    return response
+
+

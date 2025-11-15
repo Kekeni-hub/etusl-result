@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Results (CSV){% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Welcome</h5>
+                    <h3 class="text-success">{{ user.first_name }}</h3>
+                    <hr>
+                    <p class="mb-2"><strong>Lecturer ID:</strong> {{ lecturer.lecturer_id }}</p>
+                    <p class="mb-2"><strong>Email:</strong> {{ lecturer.email }}</p>
+                    <p class="mb-2"><strong>Faculty:</strong> {{ lecturer.faculty.name }}</p>
+                    <p class="mb-2"><strong>Department:</strong> {{ lecturer.department.name }}</p>
+                </div>
+            </div>
+
+            <div class="list-group">
+                <a href="{% url 'lecturer_dashboard' %}" class="list-group-item list-group-item-action">
+                    Dashboard
+                </a>
+                <a href="{% url 'lecturer_edit_profile' %}" class="list-group-item list-group-item-action">
+                    Edit Profile
+                </a>
+                <a href="{% url 'upload_results' %}" class="list-group-item list-group-item-action">
+                    Upload Results (Form)
+                </a>
+                <a href="{% url 'upload_results_csv' %}" class="list-group-item list-group-item-action active">
+                    Upload Results (CSV)
+                </a>
+                <a href="{% url 'lecturer_logout' %}" class="list-group-item list-group-item-action text-danger">
+                    Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Upload Results via CSV</h5>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">CSV Format Instructions</h6>
+                        <p class="mb-2">Your CSV file must contain the following columns:</p>
+                        <ul class="mb-0">
+                            <li><strong>Student_ID</strong> - The student's registration ID (required)</li>
+                            <li><strong>Module_Code</strong> - The course/module code (required)</li>
+                            <li><strong>Score</strong> - The student's score (required)</li>
+                            <li><strong>Total_Score</strong> - The total possible score (optional, defaults to 100)</li>
+                        </ul>
+                        <p class="mt-3 mb-0">
+                            <a href="{% url 'download_csv_template' %}" class="btn btn-sm btn-outline-primary">
+                                Download CSV Template
+                            </a>
+                        </p>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="program" class="form-label">Program <span class="text-danger">*</span></label>
+                                <select name="program" id="program" class="form-select" required>
+                                    <option value="">-- Select Program --</option>
+                                    {% for program in programs %}
+                                        <option value="{{ program.id }}">{{ program.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="academic_year" class="form-label">Academic Year <span class="text-danger">*</span></label>
+                                <select name="academic_year" id="academic_year" class="form-select" required>
+                                    <option value="">-- Select Year --</option>
+                                    {% for year_code, year_label in academic_years %}
+                                        <option value="{{ year_code }}">{{ year_label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="semester" class="form-label">Semester <span class="text-danger">*</span></label>
+                                <select name="semester" id="semester" class="form-select" required>
+                                    <option value="">-- Select Semester --</option>
+                                    {% for sem_code, sem_label in semesters %}
+                                        <option value="{{ sem_code }}">{{ sem_label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">CSV File <span class="text-danger">*</span></label>
+                            <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv" required>
+                            <small class="form-text text-muted">Upload a .csv file with your student results</small>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'lecturer_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success">Upload Results</button>
+                        </div>
+                    </form>
+
+                    <hr class="my-5">
+
+                    <h6 class="mb-3">Example CSV Format</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered bg-light">
+                            <thead>
+                                <tr>
+                                    <th>Student_ID</th>
+                                    <th>Module_Code</th>
+                                    <th>Score</th>
+                                    <th>Total_Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>STU001</td>
+                                    <td>CS101</td>
+                                    <td>85</td>
+                                    <td>100</td>
+                                </tr>
+                                <tr>
+                                    <td>STU002</td>
+                                    <td>CS101</td>
+                                    <td>92</td>
+                                    <td>100</td>
+                                </tr>
+                                <tr>
+                                    <td>STU003</td>
+                                    <td>CS102</td>
+                                    <td>78</td>
+                                    <td>100</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-warning mt-4">
+                        <h6 class="alert-heading">Important Notes</h6>
+                        <ul class="mb-0">
+                            <li>All students in the CSV must belong to the selected program</li>
+                            <li>Module codes will be created automatically if they don't exist</li>
+                            <li>Duplicate entries will update existing results</li>
+                            <li>All results will be submitted to the Head of Department for approval</li>
+                            <li>Scores must be numeric values (integers or decimals)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
