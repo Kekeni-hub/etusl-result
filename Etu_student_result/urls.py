@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from student.views import home
+from student.views import home, developers
 from admin_hierarchy.views import hod_index, dean_index
 from rest_framework import routers
 from student.api.views import StudentViewSet, ResultViewSet, TokenRotateView
@@ -56,6 +56,7 @@ router.register(r'assignment-submissions', AssignmentSubmissionViewSet, basename
 
 urlpatterns = [
     path('', home, name='home'),
+    path('developers/', developers, name='developers'),
     # Django admin enabled again per user request.
     path('admin/', admin.site.urls),
     path('student/', include('student.urls')),

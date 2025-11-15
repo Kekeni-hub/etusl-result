@@ -19,6 +19,11 @@ def home(request):
     return render(request, 'home.html')
 
 
+def developers(request):
+    """Developers page showing team members"""
+    return render(request, 'developers.html')
+
+
 @require_http_methods(["GET", "POST"])
 def student_login(request):
     """Student login view"""

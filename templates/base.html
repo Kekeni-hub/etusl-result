@@ -105,6 +105,35 @@
         .developer-card:hover .display-1 {
             transform: scale(1.15) rotate(-5deg);
         }
+        
+        /* Developer Page Styling */
+        .developer-photo {
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .developer-photo:hover {
+            transform: scale(1.05);
+        }
+        
+        .tech-box {
+            padding: 2rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            background: white;
+            border: 1px solid #e9ecef;
+        }
+        
+        .tech-box:hover {
+            background: #f8f9fa;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-5px);
+        }
+        
+        /* Text Justify for better readability */
+        .text-justify {
+            text-align: justify;
+        }
         </style>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
