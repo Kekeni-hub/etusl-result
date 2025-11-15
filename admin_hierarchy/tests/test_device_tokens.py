@@ -44,4 +44,3 @@ class FirebaseVerifyIntegrationTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('token', resp.data)
         self.assertEqual(resp.data['email'], 'user@example.com')
-*** End Patch

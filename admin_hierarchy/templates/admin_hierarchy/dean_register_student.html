@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Student - Dean{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Register Student for {{ dean.faculty.name }}</h4>
+                </div>
+                
+                <div class="card-body p-4">
+                    {% if error_message %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ error_message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" class="needs-validation">
+                        {% csrf_token %}
+                        
+                        <!-- First Name -->
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label">First Name *</label>
+                            <input type="text" class="form-control {% if errors.first_name %}is-invalid{% endif %}" 
+                                   id="first_name" name="first_name" value="{{ form_data.first_name }}" required>
+                            {% if errors.first_name %}
+                            <div class="invalid-feedback d-block">{{ errors.first_name }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Last Name -->
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Last Name *</label>
+                            <input type="text" class="form-control {% if errors.last_name %}is-invalid{% endif %}" 
+                                   id="last_name" name="last_name" value="{{ form_data.last_name }}" required>
+                            {% if errors.last_name %}
+                            <div class="invalid-feedback d-block">{{ errors.last_name }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" class="form-control {% if errors.email %}is-invalid{% endif %}" 
+                                   id="email" name="email" value="{{ form_data.email }}" required>
+                            {% if errors.email %}
+                            <div class="invalid-feedback d-block">{{ errors.email }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Student ID -->
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label">Student ID *</label>
+                            <input type="text" class="form-control {% if errors.student_id %}is-invalid{% endif %}" 
+                                   id="student_id" name="student_id" value="{{ form_data.student_id }}" required 
+                                   placeholder="e.g., STU001234">
+                            {% if errors.student_id %}
+                            <div class="invalid-feedback d-block">{{ errors.student_id }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Phone -->
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" 
+                                   value="{{ form_data.phone }}" placeholder="e.g., +234-8012345678">
+                        </div>
+                        
+                        <!-- Department -->
+                        <div class="mb-3">
+                            <label for="department" class="form-label">Department *</label>
+                            <select class="form-select {% if errors.department %}is-invalid{% endif %}" 
+                                    id="department" name="department" required>
+                                <option value="">-- Select Department --</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if form_data.department == dept.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ dept.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if errors.department %}
+                            <div class="invalid-feedback d-block">{{ errors.department }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Program -->
+                        <div class="mb-3">
+                            <label for="program" class="form-label">Program *</label>
+                            <select class="form-select {% if errors.program %}is-invalid{% endif %}" 
+                                    id="program" name="program" required>
+                                <option value="">-- Select Program --</option>
+                                {% for prog in programs %}
+                                <option value="{{ prog.id }}" {% if form_data.program == prog.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ prog.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if errors.program %}
+                            <div class="invalid-feedback d-block">{{ errors.program }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Current Year -->
+                        <div class="mb-3">
+                            <label for="current_year" class="form-label">Current Year *</label>
+                            <select class="form-select" id="current_year" name="current_year" required>
+                                <option value="1" {% if form_data.current_year == "1" %}selected{% endif %}>Year 1</option>
+                                <option value="2" {% if form_data.current_year == "2" %}selected{% endif %}>Year 2</option>
+                                <option value="3" {% if form_data.current_year == "3" %}selected{% endif %}>Year 3</option>
+                                <option value="4" {% if form_data.current_year == "4" %}selected{% endif %}>Year 4</option>
+                                <option value="5" {% if form_data.current_year == "5" %}selected{% endif %}>Year 5</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="d-flex gap-2 justify-content-between mt-4">
+                            <a href="{% url 'dean_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-person-plus"></i> Register Student
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr class="my-4">
+                    <small class="text-muted">
+                        <strong>Note:</strong> A temporary password will be generated and sent to the student's email. 
+                        Students will be required to change it on first login.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 10px;
+}
+.card-header {
+    border-radius: 10px 10px 0 0;
+    padding: 1.5rem;
+}
+</style>
+{% endblock %}

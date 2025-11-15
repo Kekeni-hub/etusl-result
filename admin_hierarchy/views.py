@@ -574,6 +574,169 @@ def dean_add_student_success(request):
 
 
 @login_required(login_url='dean_login')
+def dean_register_student(request):
+    """NEW SIMPLIFIED: Dean registers a student - fresh implementation without complex form logic."""
+    try:
+        dean = request.user.dean_profile
+    except Exception as e:
+        logger.error(f"dean_register_student: No dean profile for {request.user.username}")
+        messages.error(request, 'You must be logged in as a dean to access this page.')
+        return redirect('dean_login')
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip().lower()
+            student_id = request.POST.get('student_id', '').strip().upper()
+            phone = request.POST.get('phone', '').strip()
+            department_id = request.POST.get('department')
+            program_id = request.POST.get('program')
+            current_year = request.POST.get('current_year', '1')
+            
+            errors = {}
+            
+            # Validation
+            if not first_name:
+                errors['first_name'] = 'First name is required.'
+            if not last_name:
+                errors['last_name'] = 'Last name is required.'
+            if not email:
+                errors['email'] = 'Email is required.'
+            if not student_id:
+                errors['student_id'] = 'Student ID is required.'
+            if not department_id:
+                errors['department'] = 'Department is required.'
+            if not program_id:
+                errors['program'] = 'Program is required.'
+            
+            # Check for duplicates
+            if email and not errors.get('email'):
+                if User.objects.filter(email=email).exists():
+                    errors['email'] = 'This email is already registered.'
+            if student_id and not errors.get('student_id'):
+                if Student.objects.filter(student_id=student_id).exists():
+                    errors['student_id'] = 'This student ID is already registered.'
+            
+            if errors:
+                # Return form with errors
+                departments = Department.objects.filter(faculty=dean.faculty)
+                programs = Program.objects.filter(department__faculty=dean.faculty)
+                return render(request, 'admin_hierarchy/dean_register_student.html', {
+                    'dean': dean,
+                    'errors': errors,
+                    'departments': departments,
+                    'programs': programs,
+                    'form_data': request.POST,
+                })
+            
+            # All validation passed - create user and student
+            from django.utils.crypto import get_random_string
+            temp_password = get_random_string(10)
+            
+            # Create User
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                password=temp_password
+            )
+            
+            # Get department and program
+            department = Department.objects.get(id=department_id)
+            program = Program.objects.get(id=program_id)
+            
+            # Create Student
+            student = Student.objects.create(
+                user=user,
+                student_id=student_id,
+                email=email,
+                phone=phone,
+                faculty=dean.faculty,
+                department=department,
+                program=program,
+                current_year=int(current_year),
+                is_active=True,
+                must_change_password=True
+            )
+            
+            # Try to send email
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                subject = 'Your Student Account Created'
+                message = f"""Hello {user.get_full_name()},
+
+Your student account has been created at the Student Results Portal.
+
+Student ID: {student.student_id}
+Temporary Password: {temp_password}
+
+Please login and change your password immediately.
+
+Login: {request.build_absolute_uri(reverse('student_login'))}
+
+Regards,
+University Exams Office"""
+                
+                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
+            except Exception as e:
+                logger.warning(f"Email sending failed for {email}: {e}")
+            
+            # Success - redirect to success page
+            request.session['last_student_created'] = {
+                'name': user.get_full_name(),
+                'student_id': student.student_id,
+                'email': student.email,
+                'temp_password': temp_password
+            }
+            return redirect('dean_register_student_success')
+        
+        except Exception as e:
+            logger.error(f"dean_register_student: Error creating student: {e}", exc_info=True)
+            departments = Department.objects.filter(faculty=dean.faculty)
+            programs = Program.objects.filter(department__faculty=dean.faculty)
+            return render(request, 'admin_hierarchy/dean_register_student.html', {
+                'dean': dean,
+                'error_message': 'An error occurred while registering the student. Please try again.',
+                'departments': departments,
+                'programs': programs,
+                'form_data': request.POST,
+            })
+    
+    else:
+        # GET request - show form
+        departments = Department.objects.filter(faculty=dean.faculty)
+        programs = Program.objects.filter(department__faculty=dean.faculty)
+        return render(request, 'admin_hierarchy/dean_register_student.html', {
+            'dean': dean,
+            'departments': departments,
+            'programs': programs,
+        })
+
+
+@login_required(login_url='dean_login')
+def dean_register_student_success(request):
+    """Show success message after student registration."""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    student = request.session.pop('last_student_created', None)
+    if not student:
+        return redirect('dean_register_student')
+    
+    return render(request, 'admin_hierarchy/dean_register_student_success.html', {
+        'dean': dean,
+        'student': student,
+    })
+
+
+@login_required(login_url='dean_login')
 def dean_add_program(request):
     """Allow DEAN to add a Program within their faculty (department must belong to their faculty)."""
     try:

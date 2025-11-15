@@ -139,7 +139,7 @@ MIDDLEWARE = [
     'Etu_student_result.security_middleware.DirectoryTraversalProtectionMiddleware',
     'Etu_student_result.security_middleware.CommandInjectionProtectionMiddleware',
     'Etu_student_result.security_middleware.XSSProtectionMiddleware',
-    'Etu_student_result.security_middleware.SuspiciousUserAgentMiddleware',
+    # TEMPORARILY DISABLED: 'Etu_student_result.security_middleware.SuspiciousUserAgentMiddleware',
     'Etu_student_result.security_middleware.FileUploadSecurityMiddleware',
     'Etu_student_result.security_middleware.RateLimitingMiddleware',
 ]
