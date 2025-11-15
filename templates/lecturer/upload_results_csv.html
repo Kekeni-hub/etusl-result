@@ -62,6 +62,9 @@
                             <li><strong>Total_Score</strong> - The total possible score (optional, defaults to 100)</li>
                         </ul>
                         <p class="mt-3 mb-0">
+                            <strong>Result Type:</strong> Select the type of result you're uploading from the dropdown (Exam, Test, Assignment, Presentation, Attendance, Reference, Current Exam, or Incomplete Grades)
+                        </p>
+                        <p class="mt-2 mb-0">
                             <a href="{% url 'download_csv_template' %}" class="btn btn-sm btn-outline-primary">
                                 Download CSV Template
                             </a>
@@ -82,6 +85,18 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
+                                <label for="result_type" class="form-label">Result Type <span class="text-danger">*</span></label>
+                                <select name="result_type" id="result_type" class="form-select" required>
+                                    <option value="">-- Select Result Type --</option>
+                                    {% for code, label in result_types %}
+                                        <option value="{{ code }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label for="academic_year" class="form-label">Academic Year <span class="text-danger">*</span></label>
                                 <select name="academic_year" id="academic_year" class="form-select" required>
                                     <option value="">-- Select Year --</option>
@@ -90,9 +105,6 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="semester" class="form-label">Semester <span class="text-danger">*</span></label>
                                 <select name="semester" id="semester" class="form-select" required>

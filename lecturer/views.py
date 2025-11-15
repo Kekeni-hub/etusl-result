@@ -956,6 +956,16 @@ def upload_results_csv(request):
         return redirect('lecturer_login')
     
     programs = Program.objects.all()
+    result_types = [
+        ('exam', 'Exam'),
+        ('test', 'Test'),
+        ('assignment', 'Assignment'),
+        ('presentation', 'Presentation'),
+        ('attendance', 'Attendance'),
+        ('reference', 'Reference'),
+        ('current_exam', 'Current Exam'),
+        ('incomplete_grades', 'Incomplete Grades'),
+    ]
     academic_years = [
         ('2023/2024', '2023/2024'),
         ('2024/2025', '2024/2025'),
@@ -969,6 +979,7 @@ def upload_results_csv(request):
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')
         program_id = request.POST.get('program')
+        result_type = request.POST.get('result_type')
         academic_year = request.POST.get('academic_year')
         semester = request.POST.get('semester')
         
@@ -986,6 +997,10 @@ def upload_results_csv(request):
         
         if not semester:
             messages.error(request, 'Please select a semester.')
+            return redirect('upload_results_csv')
+        
+        if not result_type:
+            messages.error(request, 'Please select a result type.')
             return redirect('upload_results_csv')
         
         try:
@@ -1085,27 +1100,31 @@ def upload_results_csv(request):
                         grade = 'F'
                     
                     # Create or update result
-                    result, created = Result.objects.update_or_create(
-                        student=student,
-                        subject=module.name,
-                        result_type='exam',  # Default for CSV bulk upload
-                        academic_year=academic_year,
-                        semester=semester,
-                        defaults={
-                            'program': program,
-                            'department': student.department,
-                            'faculty': student.faculty,
-                            'score': score,
-                            'total_score': total_score,
-                            'grade': grade,
-                            'uploaded_by': lecturer,
-                        }
-                    )
-                    
-                    if created:
-                        created_count += 1
-                    else:
-                        updated_count += 1
+                    try:
+                        result, created = Result.objects.update_or_create(
+                            student=student,
+                            subject=module.name,
+                            result_type=result_type,
+                            academic_year=academic_year,
+                            semester=semester,
+                            defaults={
+                                'program': program,
+                                'department': student.department,
+                                'faculty': student.faculty,
+                                'score': score,
+                                'total_score': total_score,
+                                'grade': grade,
+                                'uploaded_by': lecturer,
+                            }
+                        )
+                        
+                        if created:
+                            created_count += 1
+                        else:
+                            updated_count += 1
+                    except Exception as e:
+                        errors.append(f'Row {row_num}: Failed to create/update result: {str(e)}')
+                        continue
                     
                     # Create workflow if needed
                     try:
@@ -1153,6 +1172,7 @@ def upload_results_csv(request):
     
     context = {
         'programs': programs,
+        'result_types': result_types,
         'academic_years': academic_years,
         'semesters': semesters,
     }
