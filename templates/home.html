@@ -14,34 +14,7 @@
     </div>
 </div>
 
-<!-- Login Cards Section -->
-<div class="container my-5 pt-4">
-    <div class="row">
-        <!-- Student Login -->
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="display-5 text-primary mb-3">👨‍🎓</div>
-                    <h3 class="card-title">Student</h3>
-                    <p class="card-text">Login to view your academic results and download them in PDF format.</p>
-                    <a href="{% url 'student_login' %}" class="btn btn-primary">Student Login</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Admin: single entry (covers Lecturer, HOD, DEAN, Exam Officer) -->
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="display-5 text-danger mb-3">⚙️</div>
-                    <h3 class="card-title">Admin</h3>
-                    <p class="card-text">Administrative access (Lecturer, HOD, DEAN, Exam Officer).</p>
-                    <a href="{% url 'admin_portal' %}" class="btn btn-danger">Admin Login</a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Login cards removed; use topbar links for Student/Admin login -->
 
 <section class="bg-light py-5">
     <div class="container">
