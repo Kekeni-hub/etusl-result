@@ -446,71 +446,131 @@ def dean_add_student(request):
     """Allow DEAN to add a student to their faculty; departments/programs limited to dean's faculty."""
     try:
         dean = request.user.dean_profile
-    except:
+    except Exception as e:
+        logger.error(f"dean_add_student: User {request.user.username} has no dean_profile: {e}")
         return redirect('dean_login')
 
     # Determine whether to show all departments/programs or restrict to dean's faculty
     show_all = request.GET.get('show_all') == '1' or request.POST.get('show_all') == '1'
 
     if request.method == 'POST':
-        # Instantiate the form; respect the show_all toggle if provided
-        form = DeanStudentForm(None if show_all else dean.faculty, request.POST, request.FILES)
-        if form.is_valid():
-            data = form.cleaned_data
-            # Create the User
-            from django.contrib.auth.models import User
-            from django.utils.crypto import get_random_string
-            from django.core.mail import send_mail
-            from django.conf import settings
+        try:
+            # Instantiate the form; respect the show_all toggle if provided
+            form = DeanStudentForm(None if show_all else dean.faculty, request.POST, request.FILES)
+            if form.is_valid():
+                data = form.cleaned_data
+                # Create the User
+                from django.contrib.auth.models import User
+                from django.utils.crypto import get_random_string
+                from django.core.mail import send_mail
+                from django.conf import settings
+                from django.db import IntegrityError
 
-            # generate a temporary password
-            password = get_random_string(10)
-            user = User.objects.create_user(
-                username=data['email'],
-                email=data['email'],
-                first_name=data['first_name'],
-                last_name=data['last_name'],
-                password=password
-            )
+                # generate a temporary password
+                password = get_random_string(10)
+                
+                try:
+                    user = User.objects.create_user(
+                        username=data['email'],
+                        email=data['email'],
+                        first_name=data['first_name'],
+                        last_name=data['last_name'],
+                        password=password
+                    )
 
-            # Create the Student profile
-            student = Student.objects.create(
-                user=user,
-                student_id=data['student_id'],
-                email=data['email'],
-                phone=data.get('phone', ''),
-                faculty=dean.faculty,
-                department=data['department'],
-                program=data['program'],
-                current_year=int(data['current_year']),
-                date_of_birth=data.get('date_of_birth'),
-                address=data.get('address', ''),
-                is_active=True,
-                must_change_password=True,
-                photo=data.get('photo') or None
-            )
-            # send temporary password to student's email (console backend used in DEBUG)
-            subject = 'Your student account has been created'
-            message = (
-                f"Hello {user.get_full_name()},\n\n"
-                f"An account has been created for you at the Student Results portal.\n"
-                f"Student ID: {student.student_id}\n"
-                f"Temporary password: {password}\n\n"
-                f"You will be required to change this password on first login.\n"
-                f"Please login at: {request.build_absolute_uri(reverse('student_login'))}\n\n"
-                f"Regards,\nUniversity Exams Office"
-            )
-            try:
-                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [student.email], fail_silently=False)
-                messages.success(request, f"Student {user.get_full_name()} ({student.student_id}) created and temporary password emailed to the student.")
-            except Exception:
-                # fallback: show a non-sensitive notification to dean
-                messages.warning(request, f"Student {user.get_full_name()} ({student.student_id}) created. Failed to send email; please communicate the temporary password to the student securely.")
-            return redirect('dean_dashboard')
+                    # Create the Student profile
+                    student = Student.objects.create(
+                        user=user,
+                        student_id=data['student_id'],
+                        email=data['email'],
+                        phone=data.get('phone', ''),
+                        faculty=dean.faculty,
+                        department=data['department'],
+                        program=data['program'],
+                        current_year=int(data['current_year']),
+                        date_of_birth=data.get('date_of_birth'),
+                        address=data.get('address', ''),
+                        is_active=True,
+                        must_change_password=True,
+                        photo=data.get('photo') or None
+                    )
+                    # send temporary password to student's email (console backend used in DEBUG)
+                    subject = 'Your student account has been created'
+                    message = (
+                        f"Hello {user.get_full_name()},\n\n"
+                        f"An account has been created for you at the Student Results portal.\n"
+                        f"Student ID: {student.student_id}\n"
+                        f"Temporary password: {password}\n\n"
+                        f"You will be required to change this password on first login.\n"
+                        f"Please login at: {request.build_absolute_uri(reverse('student_login'))}\n\n"
+                        f"Regards,\nUniversity Exams Office"
+                    )
+                    email_sent = False
+                    try:
+                        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [student.email], fail_silently=False)
+                        email_sent = True
+                        try:
+                            messages.success(request, f"Student {user.get_full_name()} ({student.student_id}) created successfully. Temporary password sent to email.")
+                        except Exception:
+                            pass
+                    except Exception as email_err:
+                        logger.warning(f"dean_add_student: Email sending failed for {student.email}: {email_err}")
+                        # fallback: show a non-sensitive notification to dean
+                        try:
+                            messages.warning(request, f"Student {user.get_full_name()} ({student.student_id}) created. Email sending failed - contact student with temporary password: {password}")
+                        except Exception:
+                            pass
+                    
+                    # Redirect with session flag to show success page
+                    request.session['last_student_created'] = {
+                        'name': user.get_full_name(),
+                        'student_id': student.student_id,
+                        'email': student.email,
+                        'email_sent': email_sent
+                    }
+                    return redirect('dean_add_student_success')
+                except IntegrityError as e:
+                    # Handle race condition: email or student_id already exists
+                    error_msg = str(e)
+                    logger.warning(f"dean_add_student: IntegrityError when creating student: {error_msg}")
+                    if 'email' in error_msg.lower():
+                        form.add_error('email', 'This email is already in use.')
+                    elif 'student_id' in error_msg.lower():
+                        form.add_error('student_id', 'This student ID is already in use.')
+                    else:
+                        form.add_error(None, 'Database error: This student record may already exist. Please try again.')
+                except Exception as e:
+                    # Handle any other unexpected errors gracefully
+                    logger.error(f"dean_add_student: Unexpected error creating student: {e}", exc_info=True)
+                    form.add_error(None, f'An error occurred while creating the student account. Please try again or contact support.')
+        except Exception as form_err:
+            # Catch any exceptions during form processing
+            logger.error(f"dean_add_student: Error processing form: {form_err}", exc_info=True)
+            form = DeanStudentForm(None if show_all else dean.faculty)
+            messages.error(request, "An unexpected error occurred. Please try again.")
     else:
         form = DeanStudentForm(None if show_all else dean.faculty)
 
     return render(request, 'admin_hierarchy/dean_add_student.html', {'form': form, 'dean': dean})
+
+
+@login_required(login_url='dean_login')
+def dean_add_student_success(request):
+    """Show success message after DEAN creates a student."""
+    try:
+        dean = request.user.dean_profile
+    except:
+        return redirect('dean_login')
+    
+    last_student = request.session.pop('last_student_created', None)
+    if not last_student:
+        return redirect('dean_add_student')
+    
+    context = {
+        'dean': dean,
+        'student': last_student,
+    }
+    return render(request, 'admin_hierarchy/dean_add_student_success.html', context)
 
 
 @login_required(login_url='dean_login')
@@ -713,14 +773,14 @@ def exam_officer_publish_result(request, workflow_id):
             result.is_published = True
             result.save()
 
-            workflow.status = 'exam_officer_published'
+            workflow.status = 'exam_published'
             workflow.exam_officer_notes = notes
             workflow.exam_officer_reviewed_at = timezone.now()
             workflow.save()
 
             ApprovalHistory.objects.create(
                 workflow=workflow,
-                action='exam_officer_published',
+                action='exam_published',
                 admin_user=request.user,
                 notes=notes
             )
@@ -754,7 +814,7 @@ def exam_officer_publish_result(request, workflow_id):
 
             ApprovalHistory.objects.create(
                 workflow=workflow,
-                action='exam_officer_returned',
+                action='exam_returned',
                 admin_user=request.user,
                 notes=notes
             )

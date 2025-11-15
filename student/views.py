@@ -205,6 +205,15 @@ def download_result_pdf(request, result_id):
         messages.error(request, 'Result not found.')
         return redirect('student_dashboard')
     
+    # Prepare display-safe published date
+    if result.published_date:
+        try:
+            published_date_display = result.published_date.strftime('%d %B %Y %H:%M:%S')
+        except Exception:
+            published_date_display = str(result.published_date)
+    else:
+        published_date_display = 'N/A'
+
     # Create HTML content for download
     html_content = f"""
     <!DOCTYPE html>
@@ -280,8 +289,8 @@ def download_result_pdf(request, result_id):
             </tr>
         </table>
 
-        <div class="footer">
-            <p>Generated on: {result.published_date.strftime('%d %B %Y %H:%M:%S')}</p>
+            <div class="footer">
+                <p>Generated on: {published_date_display}</p>
             <p>This is an official academic record.</p>
         </div>
     </body>
@@ -292,6 +301,7 @@ def download_result_pdf(request, result_id):
     response['Content-Disposition'] = f'attachment; filename="result_{result.id}.html"'
     
     return response
+
 
 
 def student_logout(request):

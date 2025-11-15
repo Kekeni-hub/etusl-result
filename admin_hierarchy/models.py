@@ -92,6 +92,7 @@ class ApprovalHistory(models.Model):
         ('dean_rejected', 'DEAN Rejected'),
         ('exam_published', 'EXAM Published'),
         ('exam_rejected', 'EXAM Rejected'),
+        ('exam_returned', 'EXAM Returned'),
     ]
     
     action = models.CharField(max_length=20, choices=ACTION_CHOICES)

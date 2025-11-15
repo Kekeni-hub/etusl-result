@@ -675,8 +675,21 @@ def send_result_publishing_notice(request, notice_id):
             messages_created = 0
             for student in students:
                 # Message shows only publishing date/time - NOT deadline info
-                message_body = notice.message.replace('{date}', publishing_datetime.strftime('%B %d, %Y'))
-                message_body = message_body.replace('{time}', publishing_datetime.strftime('%I:%M %p'))
+                if publishing_datetime:
+                    try:
+                        pub_date_str = publishing_datetime.strftime('%B %d, %Y')
+                    except Exception:
+                        pub_date_str = str(publishing_datetime)
+                    try:
+                        pub_time_str = publishing_datetime.strftime('%I:%M %p')
+                    except Exception:
+                        pub_time_str = ''
+                else:
+                    pub_date_str = 'TBA'
+                    pub_time_str = ''
+
+                message_body = notice.message.replace('{date}', pub_date_str)
+                message_body = message_body.replace('{time}', pub_time_str)
                 
                 StudentResultMessage.objects.create(
                     publishing_notice=notice,
