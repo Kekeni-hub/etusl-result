@@ -383,7 +383,7 @@ def manage_results(request):
 
 @login_required(login_url='admin_login')
 def send_notification(request):
-    """Send notification to students"""
+    """Send notification to different recipient categories"""
     try:
         admin = request.user.exam_officer_profile
     except:
@@ -393,10 +393,37 @@ def send_notification(request):
         title = request.POST.get('title')
         message = request.POST.get('message')
         notification_type = request.POST.get('notification_type', 'system')
-        recipients = request.POST.getlist('recipients[]')
+        recipient_categories = request.POST.getlist('recipient_categories[]')
         
-        for recipient_id in recipients:
-            recipient = get_object_or_404(User, id=recipient_id)
+        recipients_list = []
+        count = 0
+        
+        # Collect recipients based on selected categories
+        if 'STUDENTS' in recipient_categories:
+            student_users = User.objects.filter(student__is_active=True).distinct()
+            recipients_list.extend(student_users)
+            count += student_users.count()
+        
+        if 'LECTURERS' in recipient_categories:
+            lecturer_users = User.objects.filter(lecturer__is_active=True).distinct()
+            recipients_list.extend(lecturer_users)
+            count += lecturer_users.count()
+        
+        if 'HODS' in recipient_categories:
+            hod_users = User.objects.filter(headofdepartment__is_active=True).distinct()
+            recipients_list.extend(hod_users)
+            count += hod_users.count()
+        
+        if 'DEAN' in recipient_categories:
+            dean_users = User.objects.filter(deanoffaculty__is_active=True).distinct()
+            recipients_list.extend(dean_users)
+            count += dean_users.count()
+        
+        # Remove duplicates
+        unique_users = list(set(recipients_list))
+        
+        # Create notifications
+        for recipient in unique_users:
             Notification.objects.create(
                 title=title,
                 message=message,
@@ -405,12 +432,16 @@ def send_notification(request):
                 created_by=request.user,
             )
         
-        messages.success(request, f'Notification sent to {len(recipients)} recipient(s).')
+        messages.success(request, f'Notification sent to {len(unique_users)} recipient(s) across {len(recipient_categories)} categories.')
         return redirect('send_notification')
     
-    students = Student.objects.filter(is_active=True)
     context = {
-        'students': students,
+        'recipient_categories': [
+            {'name': 'STUDENTS', 'label': 'All Students'},
+            {'name': 'LECTURERS', 'label': 'All Lecturers'},
+            {'name': 'HODS', 'label': 'All Heads of Department'},
+            {'name': 'DEAN', 'label': 'All Deans'},
+        ]
     }
     
     return render(request, 'admin/send_notification.html', context)

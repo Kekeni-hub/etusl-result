@@ -41,13 +41,13 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Select Recipients</label>
-                            <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                                {% for student in students %}
+                            <label class="form-label">Select Recipient Categories</label>
+                            <div class="border rounded p-3">
+                                {% for category in recipient_categories %}
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="recipients[]" value="{{ student.user.id }}" id="student_{{ student.id }}">
-                                        <label class="form-check-label" for="student_{{ student.id }}">
-                                            {{ student.user.get_full_name }} ({{ student.student_id }})
+                                        <input class="form-check-input" type="checkbox" name="recipient_categories[]" value="{{ category.name }}" id="category_{{ category.name }}">
+                                        <label class="form-check-label" for="category_{{ category.name }}">
+                                            {{ category.label }}
                                         </label>
                                     </div>
                                 {% endfor %}
